@@ -1573,7 +1573,7 @@ CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
 
 bool IsInitialBlockDownload()
 {
-    const CChainParams& chainParams = Params();
+    const CChainParams& chainParams = Params(); // TODO make parameter (disruptive) s/chainParams/chainparams/
     LOCK(cs_main);
     if (fImporting || fReindex)
         return true;
@@ -2223,7 +2223,7 @@ static int64_t nTimeTotal = 0;
 
 bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pindex, CCoinsViewCache& view, bool fJustCheck)
 {
-    const CChainParams& chainparams = Params();
+    const CChainParams& chainparams = Params(); // TODO make parameter (2 lines disruption)
     AssertLockHeld(cs_main);
 
     int64_t nTimeStart = GetTimeMicros();
@@ -2462,7 +2462,7 @@ enum FlushStateMode {
  * or always and in all cases if we're in prune mode and are deleting files.
  */
 bool static FlushStateToDisk(CValidationState &state, FlushStateMode mode) {
-    const CChainParams& chainparams = Params();
+    const CChainParams& chainparams = Params(); // TODO make parameter
     LOCK2(cs_main, cs_LastBlockFile);
     static int64_t nLastWrite = 0;
     static int64_t nLastFlush = 0;
@@ -3215,6 +3215,7 @@ bool FindUndoPos(CValidationState &state, int nFile, CDiskBlockPos &pos, unsigne
 
 bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, bool fCheckPOW)
 {
+    // TODO make s/Params().GetConsensus()/consensusParams/ and s/nTime/GetAdjustedTime()/ parameters
     // Check proof of work matches claimed amount
     if (fCheckPOW && !CheckProofOfWork(block.GetHash(), block.nBits, Params().GetConsensus()))
         return state.DoS(50, false, REJECT_INVALID, "high-hash", false, "proof of work failed");
@@ -3303,7 +3304,8 @@ static bool CheckIndexAgainstCheckpoint(const CBlockIndex* pindexPrev, CValidati
 
 bool ContextualCheckBlockHeader(const CBlockHeader& block, CValidationState& state, CBlockIndex * const pindexPrev)
 {
-    const Consensus::Params& consensusParams = Params().GetConsensus();
+    const Consensus::Params& consensusParams = Params().GetConsensus(); // TODO make parameter
+
     // Check proof of work
     if (block.nBits != GetNextWorkRequired(pindexPrev, &block, consensusParams))
         return state.DoS(100, false, REJECT_INVALID, "bad-diffbits", false, "incorrect proof of work");
@@ -3705,7 +3707,7 @@ CBlockIndex * InsertBlockIndex(uint256 hash)
 
 bool static LoadBlockIndexDB()
 {
-    const CChainParams& chainparams = Params();
+    const CChainParams& chainparams = Params(); // TODO make parameter
     if (!pblocktree->LoadBlockIndexGuts())
         return false;
 
@@ -5435,7 +5437,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
 // requires LOCK(cs_vRecvMsg)
 bool ProcessMessages(CNode* pfrom)
 {
-    const CChainParams& chainparams = Params();
+    const CChainParams& chainparams = Params(); // TODO make parameter (not trivial)
     //if (fDebug)
     //    LogPrintf("%s(%u messages)\n", __func__, pfrom->vRecvMsg.size());
 
@@ -5556,7 +5558,7 @@ bool ProcessMessages(CNode* pfrom)
 
 bool SendMessages(CNode* pto)
 {
-    const Consensus::Params& consensusParams = Params().GetConsensus();
+    const Consensus::Params& consensusParams = Params().GetConsensus(); // TODO make parameter (not trivial)
     {
         // Don't send anything until we get its version message
         if (pto->nVersion == 0)
