@@ -122,7 +122,8 @@ void AddOneShot(const std::string& strDest)
 
 unsigned short GetListenPort()
 {
-    return (unsigned short)(GetArg("-port", Params().GetDefaultPort()));
+    const CChainParams& chainparams = Params(); // TODO make parameter
+    return (unsigned short)(GetArg("-port", chainparams.GetDefaultPort()));
 }
 
 // find 'best' local address for a particular peer
@@ -373,6 +374,7 @@ CNode* FindNode(const CService& addr)
 
 CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
 {
+    const CChainParams& chainparams = Params(); // TODO make parameter
     if (pszDest == NULL) {
         if (IsLocal(addrConnect))
             return NULL;
@@ -394,7 +396,7 @@ CNode* ConnectNode(CAddress addrConnect, const char *pszDest)
     // Connect
     SOCKET hSocket;
     bool proxyConnectionFailed = false;
-    if (pszDest ? ConnectSocketByName(addrConnect, hSocket, pszDest, Params().GetDefaultPort(), nConnectTimeout, &proxyConnectionFailed) :
+    if (pszDest ? ConnectSocketByName(addrConnect, hSocket, pszDest, chainparams.GetDefaultPort(), nConnectTimeout, &proxyConnectionFailed) :
                   ConnectSocket(addrConnect, hSocket, nConnectTimeout, &proxyConnectionFailed))
     {
         if (!IsSelectableSocket(hSocket)) {
@@ -652,12 +654,13 @@ void CNode::copyStats(CNodeStats &stats)
 // requires LOCK(cs_vRecvMsg)
 bool CNode::ReceiveMsgBytes(const char *pch, unsigned int nBytes)
 {
+    const CChainParams& chainparams = Params(); // TODO make parameter
     while (nBytes > 0) {
 
         // get current incomplete message, or create a new one
         if (vRecvMsg.empty() ||
             vRecvMsg.back().complete())
-            vRecvMsg.push_back(CNetMessage(Params().MessageStart(), SER_NETWORK, nRecvVersion));
+            vRecvMsg.push_back(CNetMessage(chainparams.MessageStart(), SER_NETWORK, nRecvVersion));
 
         CNetMessage& msg = vRecvMsg.back();
 
@@ -1420,6 +1423,7 @@ void MapPort(bool)
 
 void ThreadDNSAddressSeed()
 {
+    const CChainParams& chainparams = Params(); // TODO make parameter
     // goal: only query DNS seeds if address need is acute
     if ((addrman.size() > 0) &&
         (!GetBoolArg("-forcednsseed", DEFAULT_FORCEDNSSEED))) {
@@ -1432,7 +1436,7 @@ void ThreadDNSAddressSeed()
         }
     }
 
-    const vector<CDNSSeedData> &vSeeds = Params().DNSSeeds();
+    const vector<CDNSSeedData> &vSeeds = chainparams.DNSSeeds();
     int found = 0;
 
     LogPrintf("Loading addresses from DNS seeds (could take a while)\n");
@@ -1448,7 +1452,7 @@ void ThreadDNSAddressSeed()
                 BOOST_FOREACH(const CNetAddr& ip, vIPs)
                 {
                     int nOneDay = 24*3600;
-                    CAddress addr = CAddress(CService(ip, Params().GetDefaultPort()));
+                    CAddress addr = CAddress(CService(ip, chainparams.GetDefaultPort()));
                     addr.nTime = GetTime() - 3*nOneDay - GetRand(4*nOneDay); // use a random age between 3 and 7 days old
                     vAdd.push_back(addr);
                     found++;
@@ -1509,6 +1513,7 @@ void static ProcessOneShot()
 
 void ThreadOpenConnections()
 {
+    const CChainParams& chainparams = Params(); // TODO make parameter
     // Connect to specific addresses
     if (mapArgs.count("-connect") && mapMultiArgs["-connect"].size() > 0)
     {
@@ -1544,7 +1549,7 @@ void ThreadOpenConnections()
             static bool done = false;
             if (!done) {
                 LogPrintf("Adding fixed seed nodes as DNS doesn't seem to be available.\n");
-                addrman.Add(convertSeed6(Params().FixedSeeds()), CNetAddr("127.0.0.1"));
+                addrman.Add(convertSeed6(chainparams.FixedSeeds()), CNetAddr("127.0.0.1"));
                 done = true;
             }
         }
@@ -1594,7 +1599,7 @@ void ThreadOpenConnections()
                 continue;
 
             // do not allow non-default ports, unless after 50 invalid addresses selected already
-            if (addr.GetPort() != Params().GetDefaultPort() && nTries < 50)
+            if (addr.GetPort() != chainparams.GetDefaultPort() && nTries < 50)
                 continue;
 
             addrConnect = addr;
@@ -1608,6 +1613,7 @@ void ThreadOpenConnections()
 
 void ThreadOpenAddedConnections()
 {
+    const CChainParams& chainparams = Params(); // TODO make parameter
     {
         LOCK(cs_vAddedNodes);
         vAddedNodes = mapMultiArgs["-addnode"];
@@ -1643,7 +1649,7 @@ void ThreadOpenAddedConnections()
         list<vector<CService> > lservAddressesToAdd(0);
         BOOST_FOREACH(const std::string& strAddNode, lAddresses) {
             vector<CService> vservNode(0);
-            if(Lookup(strAddNode.c_str(), vservNode, Params().GetDefaultPort(), fNameLookup, 0))
+            if(Lookup(strAddNode.c_str(), vservNode, chainparams.GetDefaultPort(), fNameLookup, 0))
             {
                 lservAddressesToAdd.push_back(vservNode);
                 {
@@ -2255,6 +2261,7 @@ CAddrDB::CAddrDB()
 
 bool CAddrDB::Write(const CAddrMan& addr)
 {
+    const CChainParams& chainparams = Params(); // TODO make parameter
     // Generate random temporary filename
     unsigned short randv = 0;
     GetRandBytes((unsigned char*)&randv, sizeof(randv));
@@ -2262,7 +2269,7 @@ bool CAddrDB::Write(const CAddrMan& addr)
 
     // serialize addresses, checksum data up to that point, then append csum
     CDataStream ssPeers(SER_DISK, CLIENT_VERSION);
-    ssPeers << FLATDATA(Params().MessageStart());
+    ssPeers << FLATDATA(chainparams.MessageStart());
     ssPeers << addr;
     uint256 hash = Hash(ssPeers.begin(), ssPeers.end());
     ssPeers << hash;
@@ -2293,6 +2300,7 @@ bool CAddrDB::Write(const CAddrMan& addr)
 
 bool CAddrDB::Read(CAddrMan& addr)
 {
+    const CChainParams& chainparams = Params(); // TODO make parameter
     // open input file, and associate with CAutoFile
     FILE *file = fopen(pathAddr.string().c_str(), "rb");
     CAutoFile filein(file, SER_DISK, CLIENT_VERSION);
@@ -2332,7 +2340,7 @@ bool CAddrDB::Read(CAddrMan& addr)
         ssPeers >> FLATDATA(pchMsgTmp);
 
         // ... verify the network matches ours
-        if (memcmp(pchMsgTmp, Params().MessageStart(), sizeof(pchMsgTmp)))
+        if (memcmp(pchMsgTmp, chainparams.MessageStart(), sizeof(pchMsgTmp)))
             return error("%s: Invalid network magic number", __func__);
 
         // de-serialize address data into one CAddrMan object
@@ -2461,9 +2469,10 @@ void CNode::AskFor(const CInv& inv)
 
 void CNode::BeginMessage(const char* pszCommand) EXCLUSIVE_LOCK_FUNCTION(cs_vSend)
 {
+    const CChainParams& chainparams = Params(); // TODO make parameter
     ENTER_CRITICAL_SECTION(cs_vSend);
     assert(ssSend.size() == 0);
-    ssSend << CMessageHeader(Params().MessageStart(), pszCommand, 0);
+    ssSend << CMessageHeader(chainparams.MessageStart(), pszCommand, 0);
     LogPrint("net", "sending: %s ", SanitizeString(pszCommand));
 }
 
@@ -2533,6 +2542,7 @@ CBanDB::CBanDB()
 
 bool CBanDB::Write(const banmap_t& banSet)
 {
+    const CChainParams& chainparams = Params(); // TODO make parameter
     // Generate random temporary filename
     unsigned short randv = 0;
     GetRandBytes((unsigned char*)&randv, sizeof(randv));
@@ -2540,7 +2550,7 @@ bool CBanDB::Write(const banmap_t& banSet)
 
     // serialize banlist, checksum data up to that point, then append csum
     CDataStream ssBanlist(SER_DISK, CLIENT_VERSION);
-    ssBanlist << FLATDATA(Params().MessageStart());
+    ssBanlist << FLATDATA(chainparams.MessageStart());
     ssBanlist << banSet;
     uint256 hash = Hash(ssBanlist.begin(), ssBanlist.end());
     ssBanlist << hash;
@@ -2571,6 +2581,7 @@ bool CBanDB::Write(const banmap_t& banSet)
 
 bool CBanDB::Read(banmap_t& banSet)
 {
+    const CChainParams& chainparams = Params(); // TODO make parameter
     // open input file, and associate with CAutoFile
     FILE *file = fopen(pathBanlist.string().c_str(), "rb");
     CAutoFile filein(file, SER_DISK, CLIENT_VERSION);
@@ -2610,7 +2621,7 @@ bool CBanDB::Read(banmap_t& banSet)
         ssBanlist >> FLATDATA(pchMsgTmp);
 
         // ... verify the network matches ours
-        if (memcmp(pchMsgTmp, Params().MessageStart(), sizeof(pchMsgTmp)))
+        if (memcmp(pchMsgTmp, chainparams.MessageStart(), sizeof(pchMsgTmp)))
             return error("%s: Invalid network magic number", __func__);
 
         // de-serialize address data into one CAddrMan object
