@@ -7,6 +7,7 @@
 
 #include "base58.h"
 #include "init.h"
+#include "main.h" // For f8DecimalsGlobal
 #include "random.h"
 #include "sync.h"
 #include "ui_interface.h"
@@ -117,26 +118,42 @@ void RPCTypeCheckObj(const UniValue& o,
     }
 }
 
-CAmount AmountFromValue(const UniValue& value)
+CAmount AmountFromValueDecimals(const UniValue& value, const bool f8Decimals)
 {
     if (!value.isNum() && !value.isStr())
         throw JSONRPCError(RPC_TYPE_ERROR, "Amount is not a number or string");
     CAmount amount;
-    if (!ParseFixedPoint(value.getValStr(), 8, &amount))
+    // TODO Decimals: Just don't call ParseFixedPoint if !f8Decimals
+    int decimals = f8Decimals ? 8 : 0;
+    if (!ParseFixedPoint(value.getValStr(), decimals, &amount))
         throw JSONRPCError(RPC_TYPE_ERROR, "Invalid amount");
     if (!MoneyRange(amount))
         throw JSONRPCError(RPC_TYPE_ERROR, "Amount out of range");
     return amount;
 }
 
-UniValue ValueFromAmount(const CAmount& amount)
+UniValue ValueFromAmountDecimals(const CAmount& amount, const bool f8Decimals)
 {
     bool sign = amount < 0;
+    if (!f8Decimals) {
+        assert(!sign); // FIX throw exception ?
+        return UniValue(UniValue::VNUM, strprintf("%d", amount));
+    }
     int64_t n_abs = (sign ? -amount : amount);
     int64_t quotient = n_abs / COIN;
     int64_t remainder = n_abs % COIN;
     return UniValue(UniValue::VNUM,
             strprintf("%s%d.%08d", sign ? "-" : "", quotient, remainder));
+}
+
+CAmount AmountFromValue(const UniValue& value)
+{
+    return AmountFromValueDecimals(value, f8DecimalsGlobal);
+}
+
+UniValue ValueFromAmount(const CAmount& amount)
+{
+    return ValueFromAmountDecimals(amount, f8DecimalsGlobal);
 }
 
 uint256 ParseHashV(const UniValue& v, string strName)

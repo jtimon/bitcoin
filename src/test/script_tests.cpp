@@ -437,7 +437,7 @@ public:
             for (unsigned i = 0; i < scriptWitness.stack.size(); i++) {
                 wit.push_back(HexStr(scriptWitness.stack[i]));
             }
-            wit.push_back(ValueFromAmount(nValue));
+            wit.push_back(ValueFromAmountDecimals(nValue, true));
             array.push_back(wit);
         }
         array.push_back(FormatScript(spendTx.vin[0].scriptSig));
@@ -876,7 +876,7 @@ BOOST_AUTO_TEST_CASE(script_json_test)
             for (i = 0; i < test[pos].size()-1; i++) {
                 witness.stack.push_back(ParseHex(test[pos][i].get_str()));
             }
-            nValue = AmountFromValue(test[pos][i]);
+            nValue = AmountFromValueDecimals(test[pos][i], true);
             pos++;
         }
         if (test.size() < 4 + pos) // Allow size > 3; extra stuff ignored (useful for comments)
