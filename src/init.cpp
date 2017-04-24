@@ -503,6 +503,7 @@ std::string HelpMessage(HelpMessageMode mode)
     if (showDebug) {
         strUsage += HelpMessageOpt("-rpcworkqueue=<n>", strprintf("Set the depth of the work queue to service RPC calls (default: %d)", DEFAULT_HTTP_WORKQUEUE));
         strUsage += HelpMessageOpt("-rpcservertimeout=<n>", strprintf("Timeout during HTTP requests (default: %d)", DEFAULT_HTTP_SERVER_TIMEOUT));
+        strUsage += HelpMessageOpt("-rpcamountdecimals", strprintf(_("Use 8 decimals (BTC) or 0 decimals (satoshis) for rpc (default: %u)"), DEFAULT_8DECIMALS_GLOBAL));
     }
 
     return strUsage;
@@ -956,6 +957,8 @@ bool AppInitParameterInteraction()
         nScriptCheckThreads = 0;
     else if (nScriptCheckThreads > MAX_SCRIPTCHECK_THREADS)
         nScriptCheckThreads = MAX_SCRIPTCHECK_THREADS;
+
+    f8DecimalsGlobal = GetBoolArg("-rpcamountdecimals", DEFAULT_8DECIMALS_GLOBAL);
 
     // block pruning; get the amount of disk space (in MiB) to allot for block & undo files
     int64_t nPruneArg = GetArg("-prune", 0);
