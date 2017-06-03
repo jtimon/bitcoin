@@ -30,6 +30,7 @@
 
 #include <univalue.h>
 
+#include <boost/algorithm/string.hpp>
 #include <boost/thread/thread.hpp> // boost::thread::interrupt
 
 #include <mutex>
@@ -1586,6 +1587,288 @@ UniValue getchaintxstats(const JSONRPCRequest& request)
     return ret;
 }
 
+static CTransactionRef GetTransactionChecked(const uint256& hash)
+{
+    CTransactionRef tx_out;
+    uint256 hashBlock;
+    if (!GetTransaction(hash, tx_out, Params().GetConsensus(), hashBlock, false)) {
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, std::string(fTxIndex ? "No such mempool or blockchain transaction"
+          : "No such mempool transaction. Use -txindex to enable blockchain transaction queries"));
+    }
+    return tx_out;
+}
+
+template<typename T>
+static T CalculateTruncatedMedian(std::vector<T>& scores)
+{
+    size_t size = scores.size();
+    if (size == 0) {
+        return 0;
+    }
+
+    std::sort(scores.begin(), scores.end());
+    if (size % 2 == 0) {
+        return (scores[size / 2 - 1] + scores[size / 2]) / 2;
+    } else {
+        return scores[size / 2];
+    }
+}
+
+// outpoint (needed for the utxo index) + nHeight + fCoinBase
+static const size_t PER_UTXO_OVERHEAD = sizeof(COutPoint) + sizeof(uint32_t) + sizeof(bool);
+
+static std::map<std::string, UniValue> GetBlockStatsMap(const CBlockIndex* pindex, const std::set<std::string>& stats)
+{
+    std::map<std::string, UniValue> map_stats;
+    int64_t inputs = 0;
+    int64_t outputs = 0;
+    int64_t swtxs = 0;
+    int64_t total_size = 0;
+    int64_t total_weight = 0;
+    int64_t swtotal_size = 0;
+    int64_t swtotal_weight = 0;
+    int64_t utxo_size_inc = 0;
+    CAmount total_out = 0;
+    CAmount totalfee = 0;
+    CAmount minfee = MAX_MONEY;
+    CAmount maxfee = 0;
+    CAmount minfeerate = MAX_MONEY;
+    CAmount maxfeerate = 0;
+    std::vector<CAmount> fee_array;
+    std::vector<CAmount> feerate_array;
+    int64_t mintxsize = MAX_BLOCK_SERIALIZED_SIZE;
+    int64_t maxtxsize = 0;
+    std::vector<int64_t> txsize_array;
+
+    CBlock block = GetBlockChecked(pindex);
+
+    for (const auto& tx : block.vtx) {
+        outputs += tx->vout.size();
+        CAmount tx_total_out = 0;
+        for (const CTxOut& out : tx->vout) {
+            utxo_size_inc += GetSerializeSize(out, SER_NETWORK, PROTOCOL_VERSION) + PER_UTXO_OVERHEAD;
+            tx_total_out += out.nValue;
+        }
+
+        if (tx->IsCoinBase()) {
+            continue;
+        }
+        total_out += tx_total_out;
+        inputs += tx->vin.size(); // Don't count coinbase's fake input
+        int64_t tx_size = tx->GetTotalSize();
+        txsize_array.push_back(tx_size);
+        total_size += tx_size;
+        mintxsize = std::min(mintxsize, tx_size);
+        maxtxsize = std::max(maxtxsize, tx_size);
+        int64_t weight = GetTransactionWeight(*tx);
+        total_weight += weight;
+
+        if (tx->HasWitness()) {
+            ++swtxs;
+            swtotal_size += tx_size;
+            swtotal_weight += weight;
+        }
+
+        CAmount tx_total_in = 0;
+        for (const CTxIn& in : tx->vin) {
+            CTransactionRef tx_in = GetTransactionChecked(in.prevout.hash);
+            CTxOut prevoutput = tx_in->vout[in.prevout.n];
+
+            tx_total_in += prevoutput.nValue;
+            utxo_size_inc -= GetSerializeSize(prevoutput, SER_NETWORK, PROTOCOL_VERSION) + PER_UTXO_OVERHEAD;
+        }
+        CAmount txfee = tx_total_in - tx_total_out;
+        assert(MoneyRange(txfee));
+        fee_array.push_back(txfee);
+        totalfee += txfee;
+        minfee = std::min(minfee, txfee);
+        maxfee = std::max(maxfee, txfee);
+
+        // New feerate uses satoshis per virtual byte instead of per serialized byte
+        CAmount feerate = CFeeRate(txfee, weight).GetTruncatedFee(WITNESS_SCALE_FACTOR);
+        feerate_array.push_back(feerate);
+
+        minfeerate = std::min(minfeerate, feerate);
+        maxfeerate = std::max(maxfeerate, feerate);
+    }
+
+    for (const std::string& stat : stats) {
+        // Update map_stats
+        if (stat == "height") {
+            map_stats[stat] = (int64_t)pindex->nHeight;
+        } else if (stat == "time") {
+            map_stats[stat] = pindex->GetBlockTime();
+        } else if (stat == "mediantime") {
+            map_stats[stat] = pindex->GetMedianTimePast();
+        } else if (stat == "subsidy") {
+            map_stats[stat] = GetBlockSubsidy(pindex->nHeight, Params().GetConsensus());
+        } else if (stat == "totalfee") {
+            map_stats[stat] = totalfee;
+        } else if (stat == "txs") {
+            map_stats[stat] = (int64_t)block.vtx.size();
+        } else if (stat == "swtxs") {
+            map_stats[stat] = swtxs;
+        } else if (stat == "ins") {
+            map_stats[stat] = inputs;
+        } else if (stat == "outs") {
+            map_stats[stat] = outputs;
+        } else if (stat == "utxo_increase") {
+            map_stats[stat] = outputs - inputs;
+        } else if (stat == "utxo_size_inc") {
+            map_stats[stat] = utxo_size_inc;
+        } else if (stat == "total_size") {
+            map_stats[stat] = total_size;
+        } else if (stat == "total_weight") {
+            map_stats[stat] = total_weight;
+        } else if (stat == "swtotal_size") {
+            map_stats[stat] = swtotal_size;
+        } else if (stat == "swtotal_weight") {
+            map_stats[stat] = swtotal_weight;
+        } else if (stat == "total_out") {
+            map_stats[stat] = total_out;
+        } else if (stat == "minfee") {
+            map_stats[stat] = (minfee == MAX_MONEY) ? 0 : minfee;
+        } else if (stat == "maxfee") {
+            map_stats[stat] = maxfee;
+        } else if (stat == "medianfee") {
+            map_stats[stat] = CalculateTruncatedMedian(fee_array);
+        } else if (stat == "avgfee") {
+            map_stats[stat] = (block.vtx.size() > 1) ? totalfee / (block.vtx.size() - 1) : 0;
+        } else if (stat == "minfeerate") {
+            map_stats[stat] = (minfeerate == MAX_MONEY) ? 0 : minfeerate;
+        } else if (stat == "maxfeerate") {
+            map_stats[stat] = maxfeerate;
+        } else if (stat == "medianfeerate") {
+            map_stats[stat] = CalculateTruncatedMedian(feerate_array);
+        } else if (stat == "avgfeerate") {
+            map_stats[stat] = CFeeRate(totalfee, total_weight).GetTruncatedFee(WITNESS_SCALE_FACTOR);
+        } else if (stat == "mintxsize") {
+            map_stats[stat] = mintxsize == MAX_BLOCK_SERIALIZED_SIZE ? 0 : mintxsize;
+        } else if (stat == "maxtxsize") {
+            map_stats[stat] = maxtxsize;
+        } else if (stat == "mediantxsize") {
+            map_stats[stat] = CalculateTruncatedMedian(txsize_array);
+        } else if (stat == "avgtxsize") {
+            map_stats[stat] = (block.vtx.size() > 1) ? total_size / (block.vtx.size() - 1) : 0;
+        }
+    }
+    return map_stats;
+}
+
+UniValue getblockstats(const JSONRPCRequest& request)
+{
+    std::set<std::string> valid_stats = {
+        "height",
+        "time",
+        "mediantime",
+        "txs",
+        "swtxs",
+        "ins",
+        "outs",
+        "subsidy",
+        "totalfee",
+        "utxo_increase",
+        "utxo_size_inc",
+        "total_size",
+        "total_weight",
+        "swtotal_size",
+        "swtotal_weight",
+        "total_out",
+        "minfee",
+        "maxfee",
+        "medianfee",
+        "avgfee",
+        "minfeerate",
+        "maxfeerate",
+        "medianfeerate",
+        "avgfeerate",
+        "mintxsize",
+        "maxtxsize",
+        "mediantxsize",
+        "avgtxsize",
+    };
+
+    if (request.fHelp || request.params.size() < 1 || request.params.size() > 4)
+        throw std::runtime_error(
+            "getblockstats ( nStart nEnd stats )\n"
+            "\nCompute per block statistics for a given window. All amounts are in satoshis.\n"
+            "\nIt won't work in some cases with pruning or without -txindex.\n"
+            "\nArguments:\n"
+            "1. \"height\"     (numeric, required) The height of the target block.Negative values count back from the current tip.\n"
+            "2. \"stats\"      (string,  optional) Values to plot (comma separated), default(all): " + boost::join(valid_stats, ",") +
+            "\nResult: (all values are in reverse order height-wise)\n"
+            "{                             (json object)\n"
+            "  \"height\": xxxxx,          (numeric) The height of the block.\n"
+            "  \"time\": xxxxx,            (numeric) The block time.\n"
+            "  \"mediantime\": xxxxx,      (numeric) The block median time past.\n"
+            "  \"txs\": xxxxx,             (numeric) The number of transactions (excluding coinbase).\n"
+            "  \"swtxs\": xxxxx,           (numeric) The number of segwit transactions.\n"
+            "  \"ins\": xxxxx,             (numeric) The number of inputs (excluding coinbase).\n"
+            "  \"outs\": xxxxx,            (numeric) The number of outputs (including coinbase).\n"
+            "  \"subsidy\": xxxxx,         (numeric) The block subsidy.\n"
+            "  \"totalfee\": xxxxx,        (numeric) The fee total.\n"
+            "  \"utxo_increase\": xxxxx,   (numeric) The increase/decrease in the number of unspent outputs.\n"
+            "  \"utxo_size_inc\": xxxxx,   (numeric) The increase/decrease in size for the utxo index (not discounting op_return and similar).\n"
+            "  \"total_size\": xxxxx,      (numeric) Total size of all non-coinbase transactions.\n"
+            "  \"total_weight\": xxxxx,    (numeric) Total weight of all non-coinbase transactions divided by segwit scale factor (4).\n"
+            "  \"swtotal_size\": xxxxx,    (numeric) Total size of all segwit transactions.\n"
+            "  \"swtotal_weight\": xxxxx,  (numeric) Total weight of all segwit transactions divided by segwit scale factor (4).\n"
+            "  \"total_out\": xxxxx,       (numeric) Total amount in all outputs (excluding coinbase and thus reward [ie subsidy + totalfee]).\n"
+            "  \"minfee\": xxxxx,          (numeric) Minimum fee in the block.\n"
+            "  \"maxfee\": xxxxx,          (numeric) Maximum fee in the block.\n"
+            "  \"medianfee\": xxxxx,       (numeric) Truncated median fee in the block.\n"
+            "  \"avgfee\": xxxxx,          (numeric) Average fee in the block.\n"
+            "  \"minfeerate\": xxxxx,      (numeric) Minimum feerate (in satoshis per virtual byte).\n"
+            "  \"maxfeerate\": xxxxx,      (numeric) Maximum feerate (in satoshis per virtual byte).\n"
+            "  \"medianfeerate\": xxxxx,   (numeric) Truncated median feerate (in satoshis per virtual byte).\n"
+            "  \"avgfeerate\": xxxxx,      (numeric) Average feerate (in satoshis per virtual byte).\n"
+            "  \"mintxsize\": xxxxx,       (numeric) Minimum transaction size.\n"
+            "  \"maxtxsize\": xxxxx,       (numeric) Maximum transaction size.\n"
+            "  \"mediantxsize\": xxxxx,    (numeric) Truncated median transaction size.\n"
+            "  \"avgtxsize\": xxxxx,       (numeric) Average transaction size.\n"
+            "}\n"
+            "\nExamples:\n"
+            + HelpExampleCli("getblockstats", "1000 \"minfeerate,avgfeerate\"")
+            + HelpExampleRpc("getblockstats", "1000 \"maxfeerate,avgfeerate\"")
+        );
+
+    LOCK(cs_main);
+
+    int height = request.params[0].get_int();
+    int current_tip = chainActive.Height();
+    if (height < 0) {
+        height = current_tip + height + 1;
+    }
+    if (height < 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Target block height %d is negative", height));
+    }
+    if (height > current_tip) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Target block height %d after current tip %d", height, current_tip));
+    }
+
+    std::set<std::string> stats;
+    if (request.params.size() > 1 && !request.params[1].isNull()) {
+        UniValue stats_univalue(UniValue::VARR);
+        stats_univalue = request.params[1].get_array();
+        for (unsigned int i = 0; i < stats_univalue.size(); i++) {
+            const std::string stat = stats_univalue[i].get_str();
+            if (valid_stats.count(stat) == 0) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, strprintf("Invalid requested statistic %s", stat));
+            }
+            stats.insert(stat);
+        }
+    } else {
+        stats = valid_stats;
+    }
+
+    std::map<std::string, UniValue> map_stats = GetBlockStatsMap(chainActive[height], stats);
+    UniValue ret(UniValue::VOBJ);
+    for (const std::string stat : stats) {
+        ret.push_back(Pair(stat, map_stats[stat]));
+    }
+    return ret;
+}
+
 UniValue savemempool(const JSONRPCRequest& request)
 {
     if (request.fHelp || request.params.size() != 0) {
@@ -1610,6 +1893,7 @@ static const CRPCCommand commands[] =
   //  --------------------- ------------------------  -----------------------  ----------
     { "blockchain",         "getblockchaininfo",      &getblockchaininfo,      {} },
     { "blockchain",         "getchaintxstats",        &getchaintxstats,        {"nblocks", "blockhash"} },
+    { "blockchain",         "getblockstats",          &getblockstats,          {"height", "stats"} },
     { "blockchain",         "getbestblockhash",       &getbestblockhash,       {} },
     { "blockchain",         "getblockcount",          &getblockcount,          {} },
     { "blockchain",         "getblock",               &getblock,               {"blockhash","verbosity|verbose"} },
