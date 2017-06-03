@@ -1748,7 +1748,6 @@ UniValue getblockstats(const JSONRPCRequest& request)
         "medianfeerate_old",
         "avgfeerate_old",
     };
-
     if (request.fHelp || request.params.size() < 1 || request.params.size() > 4)
         throw std::runtime_error(
             "getblockstats ( nStart nEnd stats )\n"
