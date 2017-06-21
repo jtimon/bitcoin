@@ -126,6 +126,7 @@ BASE_SCRIPTS= [
     'bip65-cltv-p2p.py',
     'uptime.py',
     'resendwallettransactions.py',
+    'getblockstats.py',
     'minchainwork.py',
     'p2p-fingerprint.py',
     'uacomment.py',
