@@ -20,20 +20,22 @@ CFeeRate::CFeeRate(const CAmount& nFeePaid, size_t nBytes_)
         nSatoshisPerK = 0;
 }
 
-CAmount CFeeRate::GetFee(size_t nBytes_) const
+CAmount CFeeRate::GetTruncatedFee(size_t bytes) const
 {
-    assert(nBytes_ <= uint64_t(std::numeric_limits<int64_t>::max()));
-    int64_t nSize = int64_t(nBytes_);
+    assert(bytes <= uint64_t(std::numeric_limits<int64_t>::max()));
+    return nSatoshisPerK * int64_t(bytes) / 1000;
+}
 
-    CAmount nFee = nSatoshisPerK * nSize / 1000;
+CAmount CFeeRate::GetFee(size_t bytes) const
+{
+    CAmount nFee = GetTruncatedFee(bytes);
 
-    if (nFee == 0 && nSize != 0) {
+    if (nFee == 0 && bytes != 0) {
         if (nSatoshisPerK > 0)
             nFee = CAmount(1);
         if (nSatoshisPerK < 0)
             nFee = CAmount(-1);
     }
-
     return nFee;
 }
 
