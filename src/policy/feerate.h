@@ -34,7 +34,12 @@ public:
     /**
      * Return the fee in satoshis for the given size in bytes.
      */
-    CAmount GetFee(size_t nBytes) const;
+    CAmount GetTruncatedFee(size_t bytes) const;
+    /**
+     * Return the fee in satoshis for the given size in bytes. If the
+     * result is zero, return 1 if the fee was positive or -1 if was negative.
+     */
+    CAmount GetFee(size_t bytes) const;
     /**
      * Return the fee in satoshis for a size of 1000 bytes
      */
