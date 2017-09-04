@@ -8,6 +8,8 @@
 #include "hash.h"
 #include "tinyformat.h"
 #include "utilstrencodings.h"
+#include "consensus/consensus.h"
+#include "consensus/validation.h"
 
 std::string COutPoint::ToString() const
 {
@@ -94,6 +96,11 @@ CAmount CTransaction::GetValueOut() const
 unsigned int CTransaction::GetTotalSize() const
 {
     return ::GetSerializeSize(*this, SER_NETWORK, PROTOCOL_VERSION);
+}
+
+unsigned int CTransaction::GetVirtualTotalSize() const
+{
+    return (GetTransactionWeight(*this) + WITNESS_SCALE_FACTOR - 1) / WITNESS_SCALE_FACTOR;
 }
 
 std::string CTransaction::ToString() const

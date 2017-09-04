@@ -1580,6 +1580,7 @@ static void UpdateBlockStats(const CBlockIndex* pindex, std::set<std::string>& s
     int64_t outputs = 0;
     int64_t swtxs = 0;
     int64_t total_size = 0;
+    int64_t total_size_old = 0;
     int64_t total_weight = 0;
     int64_t swtotal_size = 0;
     int64_t swtotal_weight = 0;
@@ -1614,6 +1615,8 @@ static void UpdateBlockStats(const CBlockIndex* pindex, std::set<std::string>& s
         inputs += tx->vin.size(); // Don't count coinbase's fake input
         int64_t tx_size = tx->GetTotalSize();
         total_size += tx_size;
+        int64_t tx_vsize = tx->GetVirtualTotalSize();
+        total_size_old += tx_vsize;
         int64_t weight = GetTransactionWeight(*tx);
         total_weight += weight;
 
@@ -1639,7 +1642,7 @@ static void UpdateBlockStats(const CBlockIndex* pindex, std::set<std::string>& s
         minfee = std::min(minfee, txfee);
         maxfee = std::max(maxfee, txfee);
 
-        CAmount feerate_old = CFeeRate(txfee, tx_size).GetTruncatedFee(1);
+        CAmount feerate_old = CFeeRate(txfee, tx_vsize).GetTruncatedFee(1);
         feerate_old_array.push_back(feerate_old);
         // New feerate uses satoshis per weighted byte instead of per byte
         CAmount feerate = CFeeRate(txfee, weight).GetTruncatedFee(WITNESS_SCALE_FACTOR);
@@ -1703,6 +1706,8 @@ static void UpdateBlockStats(const CBlockIndex* pindex, std::set<std::string>& s
             map_stats[stat].push_back(CalculateTruncatedMedian(feerate_array));
         } else if (stat == "avgfeerate") {
             map_stats[stat].push_back(CFeeRate(totalfee, total_weight).GetTruncatedFee(WITNESS_SCALE_FACTOR));
+        } else if (stat == "total_size_old") {
+            map_stats[stat].push_back(total_size_old);
         } else if (stat == "minfeerate_old") {
             map_stats[stat].push_back((minfeerate_old == MAX_MONEY) ? 0 : minfeerate_old);
         } else if (stat == "maxfeerate_old") {
@@ -1743,6 +1748,7 @@ UniValue getblockstats(const JSONRPCRequest& request)
         "maxfeerate",
         "medianfeerate",
         "avgfeerate",
+        "total_size_old",
         "minfeerate_old",
         "maxfeerate_old",
         "medianfeerate_old",
@@ -1785,6 +1791,7 @@ UniValue getblockstats(const JSONRPCRequest& request)
             "  \"maxfeerate\": [],         (array) Maximum feerate (in satoshis per weigthed byte).\n"
             "  \"medianfeerate\": [],      (array) Truncated median feerate (in satoshis per weigthed byte).\n"
             "  \"avgfeerate\": [],         (array) Average feerate (in satoshis per weigthed byte).\n"
+            "  \"total_size_old\": [],     (array) The total virtual size of all non-coinbase transactions.\n"
             "  \"minfeerate_old\": [],     (array) Minimum feerate (in satoshis per byte [excluding segwits]).\n"
             "  \"maxfeerate_old\": [],     (array) Maximum feerate (in satoshis per byte [excluding segwits]).\n"
             "  \"medianfeerate_old\": [],  (array) Truncated median feerate (in satoshis per byte [excluding segwits]).\n"

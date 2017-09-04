@@ -69,6 +69,7 @@ class GetblockstatsTest(BitcoinTestFramework):
             "maxfeerate",
             "medianfeerate",
             "avgfeerate",
+            "total_size_old",
             "minfeerate_old",
             "maxfeerate_old",
             "medianfeerate_old",
@@ -101,6 +102,7 @@ class GetblockstatsTest(BitcoinTestFramework):
         assert_equal(stats['maxfeerate'][0], 0)
         assert_equal(stats['medianfeerate'][0], 0)
         assert_equal(stats['avgfeerate'][0], 0)
+        assert_equal(stats['total_size_old'][0], 0)
         assert_equal(stats['minfeerate_old'][0], 0)
         assert_equal(stats['maxfeerate_old'][0], 0)
         assert_equal(stats['medianfeerate_old'][0], 0)
