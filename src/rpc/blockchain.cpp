@@ -1580,7 +1580,7 @@ static void UpdateBlockStats(const CBlockIndex* pindex, std::set<std::string>& s
     int64_t outputs = 0;
     int64_t swtxs = 0;
     int64_t total_size = 0;
-    int64_t total_size_old = 0;
+    int64_t total_vsize = 0;
     int64_t total_weight = 0;
     int64_t swtotal_size = 0;
     int64_t swtotal_weight = 0;
@@ -1616,7 +1616,7 @@ static void UpdateBlockStats(const CBlockIndex* pindex, std::set<std::string>& s
         int64_t tx_size = tx->GetTotalSize();
         total_size += tx_size;
         int64_t tx_vsize = tx->GetVirtualTotalSize();
-        total_size_old += tx_vsize;
+        total_vsize += tx_vsize;
         int64_t weight = GetTransactionWeight(*tx);
         total_weight += weight;
 
@@ -1642,7 +1642,7 @@ static void UpdateBlockStats(const CBlockIndex* pindex, std::set<std::string>& s
         minfee = std::min(minfee, txfee);
         maxfee = std::max(maxfee, txfee);
 
-        CAmount feerate_old = CFeeRate(txfee, tx_vsize).GetTruncatedFee(1);
+        CAmount feerate_old = CFeeRate(txfee, tx_size).GetTruncatedFee(1);
         feerate_old_array.push_back(feerate_old);
         // New feerate uses satoshis per weighted byte instead of per byte
         CAmount feerate = CFeeRate(txfee, weight).GetTruncatedFee(WITNESS_SCALE_FACTOR);
@@ -1682,6 +1682,8 @@ static void UpdateBlockStats(const CBlockIndex* pindex, std::set<std::string>& s
             map_stats[stat].push_back(utxo_size_inc);
         } else if (stat == "total_size") {
             map_stats[stat].push_back(total_size);
+        } else if (stat == "total_vsize") {
+            map_stats[stat].push_back(total_vsize);
         } else if (stat == "total_weight") {
             map_stats[stat].push_back(total_weight);
         } else if (stat == "swtotal_size") {
@@ -1706,8 +1708,6 @@ static void UpdateBlockStats(const CBlockIndex* pindex, std::set<std::string>& s
             map_stats[stat].push_back(CalculateTruncatedMedian(feerate_array));
         } else if (stat == "avgfeerate") {
             map_stats[stat].push_back(CFeeRate(totalfee, total_weight).GetTruncatedFee(WITNESS_SCALE_FACTOR));
-        } else if (stat == "total_size_old") {
-            map_stats[stat].push_back(total_size_old);
         } else if (stat == "minfeerate_old") {
             map_stats[stat].push_back((minfeerate_old == MAX_MONEY) ? 0 : minfeerate_old);
         } else if (stat == "maxfeerate_old") {
@@ -1736,6 +1736,7 @@ UniValue getblockstats(const JSONRPCRequest& request)
         "utxo_increase",
         "utxo_size_inc",
         "total_size",
+        "total_vsize",
         "total_weight",
         "swtotal_size",
         "swtotal_weight",
@@ -1748,7 +1749,6 @@ UniValue getblockstats(const JSONRPCRequest& request)
         "maxfeerate",
         "medianfeerate",
         "avgfeerate",
-        "total_size_old",
         "minfeerate_old",
         "maxfeerate_old",
         "medianfeerate_old",
@@ -1766,22 +1766,23 @@ UniValue getblockstats(const JSONRPCRequest& request)
             "3. \"stats\"      (string,  optional) Values to plot (comma separated), default(all): " + boost::join(valid_stats, ",") +
             "\nResult: (all values are in reverse order height-wise)\n"
             "{                           (json object)\n"
-            "  \"height\": [],           (array) The height of the blocks, ie: [end, end-1, ..., start+1, start].\n"
-            "  \"time\": [],             (array) The block time.\n"
-            "  \"mediantime\": [],       (array) The block median time past.\n"
-            "  \"txs\": [],              (array) The number of transactions (excluding coinbase).\n"
-            "  \"swtxs\": [],            (array) The number of segwit transactions.\n"
-            "  \"ins\": [],              (array) The number of inputs (excluding coinbase).\n"
-            "  \"outs\": [],             (array) The number of outputs (including coinbase).\n"
-            "  \"subsidy\": [],          (array) The block subsidy.\n"
-            "  \"totalfee\": [],         (array) The fee total.\n"
-            "  \"reward\": [],           (array) The subsidy plus the fee total.\n"
-            "  \"utxo_increase\": [],    (array) The increase/decrease in the number of unspent outputs.\n"
-            "  \"utxo_size_inc\": [],    (array) The increase/decrease in size for the utxo index (not discounting op_return and similar).\n"
+            "  \"height\": [],             (array) The height of the blocks, ie: [end, end-1, ..., start+1, start].\n"
+            "  \"time\": [],               (array) The block time.\n"
+            "  \"mediantime\": [],         (array) The block median time past.\n"
+            "  \"txs\": [],                (array) The number of transactions (excluding coinbase).\n"
+            "  \"swtxs\": [],              (array) The number of segwit transactions.\n"
+            "  \"ins\": [],                (array) The number of inputs (excluding coinbase).\n"
+            "  \"outs\": [],               (array) The number of outputs (including coinbase).\n"
+            "  \"subsidy\": [],            (array) The block subsidy.\n"
+            "  \"totalfee\": [],           (array) The fee total.\n"
+            "  \"reward\": [],             (array) The subsidy plus the fee total.\n"
+            "  \"utxo_increase\": [],      (array) The increase/decrease in the number of unspent outputs.\n"
+            "  \"utxo_size_inc\": [],      (array) The increase/decrease in size for the utxo index (not discounting op_return and similar).\n"
             "  \"total_size\": [],         (array) Total size of all non-coinbase transactions.\n"
+            "  \"total_vsize\": [],        (array) The total virtual size of all non-coinbase transactions.\n"
             "  \"total_weight\": [],       (array) Total weight of all non-coinbase transactions divided by segwit scale factor (4).\n"
-            "  \"swtotal_size\": [],         (array) Total size of all segwit transactions.\n"
-            "  \"swtotal_weight\": [],       (array) Total weight of all segwit transactions divided by segwit scale factor (4).\n"
+            "  \"swtotal_size\": [],       (array) Total size of all segwit transactions.\n"
+            "  \"swtotal_weight\": [],     (array) Total weight of all segwit transactions divided by segwit scale factor (4).\n"
             "  \"total_out\": [],          (array) Total amount in all outputs (excluding coinbase and thus reward).\n"
             "  \"minfee\": [],             (array) Minimum fee in the block.\n"
             "  \"maxfee\": [],             (array) Maximum fee in the block.\n"
@@ -1791,7 +1792,6 @@ UniValue getblockstats(const JSONRPCRequest& request)
             "  \"maxfeerate\": [],         (array) Maximum feerate (in satoshis per weigthed byte).\n"
             "  \"medianfeerate\": [],      (array) Truncated median feerate (in satoshis per weigthed byte).\n"
             "  \"avgfeerate\": [],         (array) Average feerate (in satoshis per weigthed byte).\n"
-            "  \"total_size_old\": [],     (array) The total virtual size of all non-coinbase transactions.\n"
             "  \"minfeerate_old\": [],     (array) Minimum feerate (in satoshis per byte [excluding segwits]).\n"
             "  \"maxfeerate_old\": [],     (array) Maximum feerate (in satoshis per byte [excluding segwits]).\n"
             "  \"medianfeerate_old\": [],  (array) Truncated median feerate (in satoshis per byte [excluding segwits]).\n"
