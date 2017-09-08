@@ -57,6 +57,7 @@ class GetblockstatsTest(BitcoinTestFramework):
             "utxo_increase",
             "utxo_size_inc",
             "total_size",
+            "total_vsize",
             "total_weight",
             "swtotal_size",
             "swtotal_weight",
@@ -89,6 +90,7 @@ class GetblockstatsTest(BitcoinTestFramework):
         assert_equal(stats['utxo_increase'][0], 2)
         assert_equal(stats['utxo_size_inc'][0], 173)
         assert_equal(stats['total_size'][0], 0)
+        assert_equal(stats['total_vsize'][0], 0)
         assert_equal(stats['total_weight'][0], 0)
         assert_equal(stats['swtotal_size'][0], 0)
         assert_equal(stats['swtotal_weight'][0], 0)

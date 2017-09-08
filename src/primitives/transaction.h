@@ -330,6 +330,12 @@ public:
      */
     unsigned int GetTotalSize() const;
 
+    /**
+     * Get the transaction's total virtual transaction size in bytes, as seen by nodes pre BIP 141/144. 
+     * @return Total virtual transaction size in bytes
+     */
+    unsigned int GetVirtualTotalSize() const;
+
     bool IsCoinBase() const
     {
         return (vin.size() == 1 && vin[0].prevout.IsNull());
