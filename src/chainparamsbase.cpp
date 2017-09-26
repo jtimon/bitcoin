@@ -32,7 +32,12 @@ const CBaseChainParams& BaseParams()
     return *globalChainBaseParams;
 }
 
-std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const std::string& chain)
+/**
+ * Creates and returns a std::unique_ptr<CBaseChainParams> of the chosen chain.
+ * @returns a CBaseChainParams* of the chosen chain.
+ * @throws a std::runtime_error if the chain is not supported.
+ */
+static std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const std::string& chain)
 {
     if (chain == CBaseChainParams::MAIN)
         return std::unique_ptr<CBaseChainParams>(new CBaseChainParams());
