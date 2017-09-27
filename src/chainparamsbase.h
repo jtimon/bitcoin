@@ -39,10 +39,10 @@ protected:
 void AppendParamsHelpMessages(std::string& strUsage, bool debugHelp=true);
 
 /**
- * Return the currently selected parameters. This won't change after app
+ * Return the datadir for the currently selected parameters. This won't change after app
  * startup, except for unit tests.
  */
-const CBaseChainParams& BaseParams();
+const std::string& GetChainDataDir();
 
 /** Sets the params returned by Params() to those for the given network. */
 void SelectBaseParams(const std::string& chain);

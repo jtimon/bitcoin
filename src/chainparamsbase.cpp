@@ -24,14 +24,6 @@ void AppendParamsHelpMessages(std::string& strUsage, bool debugHelp)
     }
 }
 
-static std::unique_ptr<CBaseChainParams> globalChainBaseParams;
-
-const CBaseChainParams& BaseParams()
-{
-    assert(globalChainBaseParams);
-    return *globalChainBaseParams;
-}
-
 /**
  * Creates and returns a std::unique_ptr<CBaseChainParams> of the chosen chain.
  * @returns a CBaseChainParams* of the chosen chain.
@@ -49,9 +41,16 @@ static std::unique_ptr<CBaseChainParams> CreateBaseChainParams(const std::string
     return std::unique_ptr<CBaseChainParams>(new CBaseChainParams(chain));
 }
 
+static std::string g_strDataDir;
+
 void SelectBaseParams(const std::string& chain)
 {
-    globalChainBaseParams = CreateBaseChainParams(chain);
+    g_strDataDir = CreateBaseChainParams(chain)->DataDir();
+}
+
+const std::string& GetChainDataDir()
+{
+    return g_strDataDir;
 }
 
 std::string ChainNameFromCommandLine()

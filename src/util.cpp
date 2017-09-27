@@ -572,7 +572,7 @@ const fs::path &GetDataDir(bool fNetSpecific)
         path = GetDefaultDataDir();
     }
     if (fNetSpecific)
-        path /= BaseParams().DataDir();
+        path /= GetChainDataDir();
 
     fs::create_directories(path);
 
