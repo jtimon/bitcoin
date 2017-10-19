@@ -25,10 +25,120 @@ def assert_contains(data, values, check_cointains=True):
             assert(val not in data)
 
 class GetblockstatsTest(BitcoinTestFramework):
+    all_values = [
+        "height",
+        "time",
+        "mediantime",
+        "txs",
+        "swtxs",
+        "ins",
+        "outs",
+        "subsidy",
+        "totalfee",
+        "utxo_increase",
+        "utxo_size_inc",
+        "total_size",
+        "total_weight",
+        "swtotal_size",
+        "swtotal_weight",
+        "total_out",
+        "minfee",
+        "maxfee",
+        "medianfee",
+        "avgfee",
+        "mintxsize",
+        "maxtxsize",
+        "mediantxsize",
+        "avgtxsize",
+        "minfeerate",
+        "maxfeerate",
+        "medianfeerate",
+        "avgfeerate",
+    ]
+
     def set_test_params(self):
         self.num_nodes = 2
         self.extra_args = [['-txindex'], ['-paytxfee=0.003']]
         self.setup_clean_chain = True
+
+    def utxo_size(self, txout):
+        s = len(txout["scriptPubKey"]["hex"])//2
+        if s < 253:
+            s += 1
+        elif s < 65536:
+            s += 3
+        elif s < 4294967296:
+            s += 5
+        else:
+            s += 9
+        return 41 + 8 + s
+
+    def expected_stats(self, height):
+        blk = self.nodes[0].getblock(self.nodes[0].getblockhash(height), 2)
+        txs = ins = outs = totalfee = total_out = swtxs = 0
+        total_size = total_weight = swtotal_size = swtotal_weight = 0
+        utxo_size_inc = 0
+        _fees = []
+        _feerates = []
+        _sizes = []
+        for txnum,tx in enumerate(blk["tx"]):
+            txs += 1
+            outs += len(tx["vout"])
+            for o in tx["vout"]:
+                utxo_size_inc += self.utxo_size(o)
+            if txnum == 0:
+                subsidy = sum(o["value"] for o in tx["vout"])
+            else:
+                ins += len(tx["vin"])
+                _spend = sum(o["value"] for o in tx["vout"])
+                _receive = 0
+                for i in tx["vin"]:
+                    _prevout = self.nodes[0].getrawtransaction(i["txid"],1)["vout"][i["vout"]]
+                    _receive += _prevout["value"]
+                    utxo_size_inc -= self.utxo_size(_prevout)
+                _size = tx["size"]
+                _weight = tx["vsize"]*4
+                _fee = _receive - _spend
+                _fees.append(_fee)
+                _feerates.append(round(_fee/tx["size"],8))
+                _sizes.append(tx["vsize"])
+                #Useful for debugging averages and feerates
+                #print(">> %d:%d  %r %r %r %r %r" % (height, txnum, _fee, tx["vsize"], tx["size"], round(_fee/tx["size"], 8), round(_fee/tx["vsize"],8)))
+                if any("txinwitness" in i for i in tx["vin"]):
+                    swtxs += 1
+                    swtotal_size += _size
+                    swtotal_weight += _weight
+                totalfee += _fee
+                total_out += _spend
+                total_size += _size
+                total_weight += _weight
+
+        subsidy -= totalfee
+        utxo_increase = outs - ins
+        time = blk["time"]
+        mediantime = blk["mediantime"]
+        res = {}
+        for a in locals().copy():
+            if a in self.all_values: res[a] = locals()[a]
+        stats = {"fee": (_fees, 8), "feerate": (_feerates, 8), "txsize": (_sizes,0)}
+        for _k,(_v,_prec) in stats.items():
+            if len(_v) == 0:
+                res["min"+_k] = res["max"+_k] = res["median"+_k] = res["avg"+_k] = 0
+            else:
+                _v.sort()
+                res["min"+_k] = _v[0]
+                res["max"+_k] = _v[-1]
+                if len(_v) % 2 == 0:
+                    _m = round((_v[len(_v)//2-1] + _v[len(_v)//2])/2,_prec)
+                else:
+                    _m = _v[(len(_v)-1)//2]
+                res["median"+_k] = _m
+                if _k == "feerate":
+                    # weighted average
+                    res["avgfeerate"] = round(totalfee*1000/total_weight*4/1000, 8)
+                else:
+                    res["avg"+_k] = round(sum(_v)/D(len(_v)), _prec)
+        return res
 
     def run_test(self):
         node = self.nodes[0]
@@ -46,41 +156,29 @@ class GetblockstatsTest(BitcoinTestFramework):
 
         start_height = 101
         max_stat_pos = 2
+
         stats = node.getblockstats(start=start_height, end=start_height + max_stat_pos)
 
-        all_values = [
-            "height",
-            "time",
-            "mediantime",
-            "txs",
-            "swtxs",
-            "ins",
-            "outs",
-            "subsidy",
-            "totalfee",
-            "utxo_increase",
-            "utxo_size_inc",
-            "total_size",
-            "total_weight",
-            "swtotal_size",
-            "swtotal_weight",
-            "total_out",
-            "minfee",
-            "maxfee",
-            "medianfee",
-            "avgfee",
-            "minfeerate",
-            "maxfeerate",
-            "medianfeerate",
-            "avgfeerate",
-            "mintxsize",
-            "maxtxsize",
-            "mediantxsize",
-            "avgtxsize",
-        ]
-        assert_contains(stats, all_values)
+        unchecked = set(self.all_values)
+        all_zero = set(self.all_values)
+        for h in range(0, max_stat_pos+1):
+            expected = self.expected_stats(start_height+h)
+            for a in expected:
+                unchecked.discard(a)
+                if expected[a] != 0:
+                    all_zero.discard(a)
+            missing = [a for a in self.all_values if a not in expected]
+            if missing:
+                print("Unchecked values: %s" % (",".join(missing)))
+            for a in expected:
+                assert stats[a][h] == expected[a], "stats for %s at height %d(%d+%d) unexpected (got: %r expected: %r)" % (a, start_height+h, start_height, h, stats[a][h], expected[a])
+        assert not unchecked, "Following stats unchecked: %s" % (",".join(sorted(unchecked)))
+        if all_zero:
+            print("Only ever expected 0: %s" % (",".join(sorted(all_zero))))
+
+        assert_contains(stats, self.all_values)
         # Make sure all valid statistics are included
-        assert_contains(all_values, stats.keys())
+        assert_contains(self.all_values, stats.keys())
 
         assert_equal(stats['height'][0], start_height)
         assert_equal(stats['height'][max_stat_pos], start_height + max_stat_pos)
@@ -185,7 +283,7 @@ class GetblockstatsTest(BitcoinTestFramework):
         ]
         assert_contains(stats, some_values)
         # Make sure valid stats that haven't been selected don't appear
-        other_values = [x for x in all_values if x not in some_values]
+        other_values = [x for x in self.all_values if x not in some_values]
         assert_contains(stats, other_values, False)
 
 if __name__ == '__main__':
