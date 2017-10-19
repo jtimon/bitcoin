@@ -1686,9 +1686,9 @@ static void UpdateBlockStats(const CBlockIndex* pindex, std::set<std::string>& s
         } else if (stat == "mediantime") {
             map_stats[stat].push_back(pindex->GetMedianTimePast());
         } else if (stat == "subsidy") {
-            map_stats[stat].push_back(GetBlockSubsidy(pindex->nHeight, Params().GetConsensus()));
+            map_stats[stat].push_back(ValueFromAmount(GetBlockSubsidy(pindex->nHeight, Params().GetConsensus())));
         } else if (stat == "totalfee") {
-            map_stats[stat].push_back(totalfee);
+            map_stats[stat].push_back(ValueFromAmount(totalfee));
         } else if (stat == "txs") {
             map_stats[stat].push_back((int64_t)block.vtx.size());
         } else if (stat == "swtxs") {
@@ -1710,23 +1710,23 @@ static void UpdateBlockStats(const CBlockIndex* pindex, std::set<std::string>& s
         } else if (stat == "swtotal_weight") {
             map_stats[stat].push_back(swtotal_weight);
         } else if (stat == "total_out") {
-            map_stats[stat].push_back(total_out);
+            map_stats[stat].push_back(ValueFromAmount(total_out));
         } else if (stat == "minfee") {
-            map_stats[stat].push_back((minfee == MAX_MONEY) ? 0 : minfee);
+            map_stats[stat].push_back(ValueFromAmount((minfee == MAX_MONEY) ? 0 : minfee));
         } else if (stat == "maxfee") {
-            map_stats[stat].push_back(maxfee);
+            map_stats[stat].push_back(ValueFromAmount(maxfee));
         } else if (stat == "medianfee") {
-            map_stats[stat].push_back(CalculateTruncatedMedian(fee_array));
+            map_stats[stat].push_back(ValueFromAmount(CalculateTruncatedMedian(fee_array)));
         } else if (stat == "avgfee") {
-            map_stats[stat].push_back((block.vtx.size() > 1) ? totalfee / (block.vtx.size() - 1) : 0);
+            map_stats[stat].push_back(ValueFromAmount((block.vtx.size() > 1) ? totalfee / (block.vtx.size() - 1) : 0));
         } else if (stat == "minfeerate") {
-            map_stats[stat].push_back((minfeerate == MAX_MONEY) ? 0 : minfeerate);
+            map_stats[stat].push_back(ValueFromAmount((minfeerate == MAX_MONEY) ? 0 : minfeerate));
         } else if (stat == "maxfeerate") {
-            map_stats[stat].push_back(maxfeerate);
+            map_stats[stat].push_back(ValueFromAmount(maxfeerate));
         } else if (stat == "medianfeerate") {
-            map_stats[stat].push_back(CalculateTruncatedMedian(feerate_array));
+            map_stats[stat].push_back(ValueFromAmount(CalculateTruncatedMedian(feerate_array)));
         } else if (stat == "avgfeerate") {
-            map_stats[stat].push_back(CFeeRate(totalfee, total_weight).GetTruncatedFee(WITNESS_SCALE_FACTOR));
+            map_stats[stat].push_back(ValueFromAmount(CFeeRate(totalfee, total_weight).GetTruncatedFee(WITNESS_SCALE_FACTOR)));
         } else if (stat == "mintxsize") {
             map_stats[stat].push_back(mintxsize == MAX_BLOCK_SERIALIZED_SIZE ? 0 : mintxsize);
         } else if (stat == "maxtxsize") {
