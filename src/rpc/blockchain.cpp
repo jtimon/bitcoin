@@ -1051,34 +1051,17 @@ UniValue verifychain(const JSONRPCRequest& request)
     return CVerifyDB().VerifyDB(Params(), pcoinsTip.get(), nCheckLevel, nCheckDepth);
 }
 
-/** Implementation of IsSuperMajority with better feedback */
-static UniValue SoftForkMajorityDesc(int version, CBlockIndex* pindex, const Consensus::Params& consensusParams)
+static void BuriedSoftForkDescPushBack(UniValue& softforks, const std::string& name, int deployment_id, CBlockIndex* pindex, const Consensus::Params& consensusParams)
 {
-    UniValue rv(UniValue::VOBJ);
-    bool activated = false;
-    switch(version)
-    {
-        case 2:
-            activated = pindex->nHeight >= consensusParams.buried_deployments[Consensus::DEPLOYMENT_BIP34];
-            break;
-        case 3:
-            activated = pindex->nHeight >= consensusParams.buried_deployments[Consensus::DEPLOYMENT_BIP66];
-            break;
-        case 4:
-            activated = pindex->nHeight >= consensusParams.buried_deployments[Consensus::DEPLOYMENT_BIP65];
-            break;
+    // Buried deployments with activation height value of std::numeric_limits<int>::max() are hidden.
+    int height = consensusParams.buried_deployments[deployment_id];
+    if (height != std::numeric_limits<int>::max()) {
+        UniValue rv(UniValue::VOBJ);
+        rv.push_back(Pair("type", "buried"));
+        rv.push_back(Pair("height", height));
+        rv.push_back(Pair("active", chainActive.Height() + 1 >= height));
+        softforks.push_back(Pair(name, rv));
     }
-    rv.push_back(Pair("status", activated));
-    return rv;
-}
-
-static UniValue SoftForkDesc(const std::string &name, int version, CBlockIndex* pindex, const Consensus::Params& consensusParams)
-{
-    UniValue rv(UniValue::VOBJ);
-    rv.push_back(Pair("id", name));
-    rv.push_back(Pair("version", version));
-    rv.push_back(Pair("reject", SoftForkMajorityDesc(version, pindex, consensusParams)));
-    return rv;
 }
 
 static UniValue BIP9SoftForkDesc(const Consensus::Params& consensusParams, Consensus::DeploymentPos id)
@@ -1211,9 +1194,9 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     CBlockIndex* tip = chainActive.Tip();
     UniValue softforks(UniValue::VARR);
     UniValue bip9_softforks(UniValue::VOBJ);
-    softforks.push_back(SoftForkDesc("bip34", 2, tip, consensusParams));
-    softforks.push_back(SoftForkDesc("bip66", 3, tip, consensusParams));
-    softforks.push_back(SoftForkDesc("bip65", 4, tip, consensusParams));
+    BuriedSoftForkDescPushBack(softforks, "bip34", Consensus::DEPLOYMENT_BIP34, tip, consensusParams);
+    BuriedSoftForkDescPushBack(softforks, "bip66", Consensus::DEPLOYMENT_BIP66, tip, consensusParams);
+    BuriedSoftForkDescPushBack(softforks, "bip65", Consensus::DEPLOYMENT_BIP65, tip, consensusParams);
     BIP9SoftForkDescPushBack(bip9_softforks, "csv", consensusParams, Consensus::DEPLOYMENT_CSV);
     BIP9SoftForkDescPushBack(bip9_softforks, "segwit", consensusParams, Consensus::DEPLOYMENT_SEGWIT);
     obj.push_back(Pair("softforks",             softforks));
