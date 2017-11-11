@@ -1197,7 +1197,7 @@ UniValue getblockchaininfo(const JSONRPCRequest& request)
     BuriedSoftForkDescPushBack(softforks, "bip34", Consensus::DEPLOYMENT_BIP34, tip, consensusParams);
     BuriedSoftForkDescPushBack(softforks, "bip66", Consensus::DEPLOYMENT_BIP66, tip, consensusParams);
     BuriedSoftForkDescPushBack(softforks, "bip65", Consensus::DEPLOYMENT_BIP65, tip, consensusParams);
-    BIP9SoftForkDescPushBack(bip9_softforks, "csv", consensusParams, Consensus::DEPLOYMENT_CSV);
+    BuriedSoftForkDescPushBack(softforks, "csv", Consensus::DEPLOYMENT_CSV, tip, consensusParams);
     BIP9SoftForkDescPushBack(bip9_softforks, "segwit", consensusParams, Consensus::DEPLOYMENT_SEGWIT);
     obj.push_back(Pair("softforks",             softforks));
     obj.push_back(Pair("bip9_softforks", bip9_softforks));
