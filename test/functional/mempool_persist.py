@@ -113,5 +113,17 @@ class MempoolPersistTest(BitcoinTestFramework):
         assert_raises_rpc_error(-1, "Unable to dump mempool to disk", self.nodes[1].savemempool)
         os.remove(mempooldotnew1)
 
+        NUM_TXS_IN_MEMPOOL = 900
+        self.log.debug("Send %d transactions from node0 (to its own address)" % NUM_TXS_IN_MEMPOOL)
+        self.stop_nodes()
+        self.start_node(0)
+        self.nodes[0].generate(12)
+        for i in range(NUM_TXS_IN_MEMPOOL):
+            self.nodes[0].sendtoaddress(self.nodes[0].getnewaddress(), Decimal("0.00001"))
+        self.stop_nodes()
+        self.start_node(0)
+        # Check that savemempool doesn't work while loading
+        assert_raises_rpc_error(-1, "The mempool was not loaded yet", self.nodes[0].savemempool)
+
 if __name__ == '__main__':
     MempoolPersistTest().main()
