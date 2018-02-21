@@ -337,6 +337,7 @@ CTxMemPool::CTxMemPool(CBlockPolicyEstimator* estimator) :
     // accepting transactions becomes O(N^2) where N is the number
     // of transactions in the pool
     nCheckFrequency = 0;
+    is_saving = false;
 }
 
 bool CTxMemPool::isSpent(const COutPoint& outpoint)
