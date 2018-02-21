@@ -206,9 +206,7 @@ void Shutdown()
     threadGroup.interrupt_all();
     threadGroup.join_all();
 
-    if (mempool.is_loaded && gArgs.GetArg("-persistmempool", DEFAULT_PERSIST_MEMPOOL)) {
-        DumpMempool();
-    }
+    DumpMempool();
 
     if (fFeeEstimatesInitialized)
     {
@@ -687,7 +685,6 @@ void ThreadImport(std::vector<fs::path> vImportFiles)
     if (gArgs.GetArg("-persistmempool", DEFAULT_PERSIST_MEMPOOL)) {
         LoadMempool();
     }
-    mempool.is_loaded = !fRequestShutdown;
 }
 
 /** Sanity checks

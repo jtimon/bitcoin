@@ -341,6 +341,11 @@ CTxMemPool::CTxMemPool(CBlockPolicyEstimator* estimator) :
     is_saving = false;
 }
 
+bool CTxMemPool::IsLoaded() const
+{
+    return is_loaded || !gArgs.GetArg("-persistmempool", DEFAULT_PERSIST_MEMPOOL);
+}
+
 bool CTxMemPool::isSpent(const COutPoint& outpoint)
 {
     LOCK(cs);
