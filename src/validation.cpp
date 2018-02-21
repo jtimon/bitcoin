@@ -227,7 +227,6 @@ CAmount maxTxFee = DEFAULT_TRANSACTION_MAXFEE;
 
 CBlockPolicyEstimator feeEstimator;
 CTxMemPool mempool(&feeEstimator);
-std::atomic_bool g_is_mempool_loaded{false};
 
 /** Constant stuff for coinbase transactions we create: */
 CScript COINBASE_FLAGS;
@@ -4607,7 +4606,8 @@ bool LoadMempool(void)
     }
 
     LogPrintf("Imported mempool transactions from disk: %i succeeded, %i failed, %i expired, %i already there\n", count, failed, expired, already_there);
-    return true;
+    mempool.is_loaded = true;
+    return mempool.is_loaded;
 }
 
 bool DumpMempool(void)

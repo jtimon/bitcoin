@@ -435,6 +435,9 @@ public:
  */
 class CTxMemPool
 {
+public:
+    // NIT: move LoadMempool to CTxMemPool?
+    std::atomic_bool is_loaded;
 private:
     std::atomic_bool is_saving;
     uint32_t nCheckFrequency; //!< Value n means that n times in 2^32 we check.
@@ -562,12 +565,16 @@ public:
     void ClearPrioritisation(const uint256 hash);
 
     // Functions for validation::DumpMempool and rpc::blockchain::savemempool
-    void StartSaving() { is_saving = true; };
+    void StartSaving()
+    {
+        assert(is_loaded && "Make sure you load before saving");
+        is_saving = true;
+    };
     bool StopSaving(bool ret_value)
     {
         is_saving = false;
-        return ret_value; // Just for convenience, move DumpMempool to CTxMemPool?
-    }
+        return ret_value; // Just for convenience, NIT: move DumpMempool to CTxMemPool?
+    };
     bool IsSaving() { return is_saving; };
 
     /** Remove a set of transactions from the mempool.
