@@ -455,6 +455,7 @@ private:
 public:
 
     static const int ROLLING_FEE_HALFLIFE = 60 * 60 * 12; // public only for testing
+    static const uint64_t MEMPOOL_DUMP_VERSION = 1;
 
     typedef boost::multi_index_container<
         CTxMemPoolEntry,

@@ -4531,8 +4531,6 @@ int VersionBitsTipStateSinceHeight(const Consensus::Params& params, Consensus::D
     return VersionBitsStateSinceHeight(chainActive.Tip(), params, pos, versionbitscache);
 }
 
-static const uint64_t MEMPOOL_DUMP_VERSION = 1;
-
 bool LoadMempool(void)
 {
     if (mempool.IsLoaded()) {
@@ -4557,7 +4555,7 @@ bool LoadMempool(void)
     try {
         uint64_t version;
         file >> version;
-        if (version != MEMPOOL_DUMP_VERSION) {
+        if (version != CTxMemPool::MEMPOOL_DUMP_VERSION) {
             return false;
         }
         uint64_t num;
@@ -4643,7 +4641,7 @@ bool DumpMempool(void)
 
         CAutoFile file(filestr, SER_DISK, CLIENT_VERSION);
 
-        uint64_t version = MEMPOOL_DUMP_VERSION;
+        uint64_t version = CTxMemPool::MEMPOOL_DUMP_VERSION;
         file << version;
 
         file << (uint64_t)vinfo.size();
