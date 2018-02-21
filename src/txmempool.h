@@ -435,10 +435,9 @@ public:
  */
 class CTxMemPool
 {
-public:
+private:
     // NIT: move LoadMempool to CTxMemPool?
     std::atomic_bool is_loaded;
-private:
     std::atomic_bool is_saving;
     uint32_t nCheckFrequency; //!< Value n means that n times in 2^32 we check.
     unsigned int nTransactionsUpdated; //!< Used by getblocktemplate to trigger CreateNewBlock() invocation
@@ -575,8 +574,9 @@ public:
         is_saving = false;
         return ret_value; // Just for convenience, NIT: move DumpMempool to CTxMemPool?
     };
-    bool IsSaving() { return is_saving; };
+    bool IsSaving() const { return is_saving; };
     bool IsLoaded() const;
+    void SetLoaded() { is_loaded = true; };
 
     /** Remove a set of transactions from the mempool.
      *  If a transaction is in this set, then all in-mempool descendants must

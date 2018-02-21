@@ -4535,7 +4535,7 @@ static const uint64_t MEMPOOL_DUMP_VERSION = 1;
 
 bool LoadMempool(void)
 {
-    if (!gArgs.GetArg("-persistmempool", DEFAULT_PERSIST_MEMPOOL)) {
+    if (mempool.IsLoaded()) {
         return false;
     }
 
@@ -4610,8 +4610,8 @@ bool LoadMempool(void)
     }
 
     LogPrintf("Imported mempool transactions from disk: %i succeeded, %i failed, %i expired, %i already there\n", count, failed, expired, already_there);
-    mempool.is_loaded = true;
-    return mempool.is_loaded;
+    mempool.SetLoaded();
+    return mempool.IsLoaded();
 }
 
 bool DumpMempool(void)
