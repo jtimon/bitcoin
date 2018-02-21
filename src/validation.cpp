@@ -4612,6 +4612,7 @@ bool LoadMempool(void)
 
 bool DumpMempool(void)
 {
+    mempool.StartSaving();
     int64_t start = GetTimeMicros();
 
     std::map<uint256, CAmount> mapDeltas;
@@ -4630,7 +4631,7 @@ bool DumpMempool(void)
     try {
         FILE* filestr = fsbridge::fopen(GetDataDir() / "mempool.dat.new", "wb");
         if (!filestr) {
-            return false;
+            return mempool.StopSaving(false);
         }
 
         CAutoFile file(filestr, SER_DISK, CLIENT_VERSION);
@@ -4654,9 +4655,9 @@ bool DumpMempool(void)
         LogPrintf("Dumped mempool: %gs to copy, %gs to dump\n", (mid-start)*MICRO, (last-mid)*MICRO);
     } catch (const std::exception& e) {
         LogPrintf("Failed to dump mempool: %s. Continuing anyway.\n", e.what());
-        return false;
+        return mempool.StopSaving(false);
     }
-    return true;
+    return mempool.StopSaving(true);
 }
 
 //! Guess how far we are in the verification process at the given block index

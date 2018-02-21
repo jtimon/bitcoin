@@ -436,6 +436,7 @@ public:
 class CTxMemPool
 {
 private:
+    std::atomic_bool is_saving;
     uint32_t nCheckFrequency; //!< Value n means that n times in 2^32 we check.
     unsigned int nTransactionsUpdated; //!< Used by getblocktemplate to trigger CreateNewBlock() invocation
     CBlockPolicyEstimator* minerPolicyEstimator;
@@ -560,7 +561,15 @@ public:
     void ApplyDelta(const uint256 hash, CAmount &nFeeDelta) const;
     void ClearPrioritisation(const uint256 hash);
 
-public:
+    // Functions for validation::DumpMempool and rpc::blockchain::savemempool
+    void StartSaving() { is_saving = true; };
+    bool StopSaving(bool ret_value)
+    {
+        is_saving = false;
+        return ret_value; // Just for convenience, move DumpMempool to CTxMemPool?
+    }
+    bool IsSaving() { return is_saving; };
+
     /** Remove a set of transactions from the mempool.
      *  If a transaction is in this set, then all in-mempool descendants must
      *  also be in the set, unless this transaction is being removed for being

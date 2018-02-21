@@ -1608,9 +1608,9 @@ UniValue savemempool(const JSONRPCRequest& request)
 
     if (!g_is_mempool_loaded) {
         throw JSONRPCError(RPC_MISC_ERROR, "The mempool was not loaded yet");
-    }
-
-    if (!DumpMempool()) {
+    } else if (mempool.IsSaving()) {
+        throw JSONRPCError(RPC_MISC_ERROR, "The mempool is already being saved");
+    } else if (!DumpMempool()) {
         throw JSONRPCError(RPC_MISC_ERROR, "Unable to dump mempool to disk");
     }
 
