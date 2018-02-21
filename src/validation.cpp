@@ -4612,6 +4612,9 @@ bool LoadMempool(void)
 
 bool DumpMempool(void)
 {
+    if (!mempool.IsLoaded()) {
+        return false;
+    }
     mempool.StartSaving();
     int64_t start = GetTimeMicros();
 

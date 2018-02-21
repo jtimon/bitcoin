@@ -576,6 +576,7 @@ public:
         return ret_value; // Just for convenience, NIT: move DumpMempool to CTxMemPool?
     };
     bool IsSaving() { return is_saving; };
+    bool IsLoaded() const;
 
     /** Remove a set of transactions from the mempool.
      *  If a transaction is in this set, then all in-mempool descendants must
