@@ -11,6 +11,7 @@ from test_framework.util import (
     assert_equal,
     assert_raises_rpc_error,
 )
+import json
 
 def assert_contains(data, values, check_cointains=True):
     for val in values:
@@ -51,12 +52,24 @@ class GetblockstatsTest(BitcoinTestFramework):
         "avgtxsize",
     ]
 
+    start_height = 101
+    max_stat_pos = 2
+
+    def add_options(self, parser):
+        parser.add_option("--gen-test-data", dest="gen_test_data",
+                          default=False, action="store_true",
+                          help="Generate test data")
+        parser.add_option("--test-data", dest="test_data", 
+                          default="data/rpc_getblockstats.json",
+                          action="store", metavar="FILE",
+                          help="Test data file")
+
     def set_test_params(self):
         self.num_nodes = 2
         self.extra_args = [['-txindex'], ['-paytxfee=0.003']]
         self.setup_clean_chain = True
 
-    def run_test(self):
+    def generate_test_data(self, filename):
         node = self.nodes[0]
         node.generate(101)
 
@@ -70,90 +83,62 @@ class GetblockstatsTest(BitcoinTestFramework):
         self.sync_all()
         node.generate(1)
 
-        start_height = 101
-        max_stat_pos = 2
-        stats = [node.getblockstats(height=start_height + i) for i in range(max_stat_pos+1)]
+        self.expected_stats = self.get_stats()
+
+        blocks = []
+        tip = node.getbestblockhash()
+        blkhash = None
+        height = 0
+        while tip != blkhash:
+            blkhash = node.getblockhash(height)
+            blocks.append(node.getblock(blkhash, 0))
+            height += 1
+
+        with open(filename, "w") as f:
+            f.write("""{\n  "stats": """)
+            json.dump(self.expected_stats, f, indent=4)
+            f.write(""",\n  "blocks": """)
+            json.dump(blocks, f)
+            f.write("""\n}\n""")
+
+    def load_test_data(self, filename):
+        node = self.nodes[0]
+
+        with open(filename, "r") as f:
+            d = json.load(f)
+            blocks = d["blocks"]
+            self.expected_stats = d["stats"]
+            del d
+
+        for b in blocks:
+            node.submitblock(b)
+
+    def get_stats(self):
+        node = self.nodes[0]
+        return [node.getblockstats(height=self.start_height + i) for i in range(self.max_stat_pos+1)]
+
+    def run_test(self):
+        if self.options.gen_test_data:
+            self.generate_test_data(self.options.test_data)
+        else:
+            self.load_test_data(self.options.test_data)
+
+        node = self.nodes[0]
+        stats = self.get_stats()
 
         # Make sure all valid statistics are included but nothing else is
         assert_equal(set(stats[0].keys()), set(self.EXPECTED_STATS))
 
-        print(stats)
-        assert_equal(stats[0]['height'], start_height)
-        assert_equal(stats[max_stat_pos]['height'], start_height + max_stat_pos)
+        assert_equal(stats[0]['height'], self.start_height)
+        assert_equal(stats[self.max_stat_pos]['height'], self.start_height + self.max_stat_pos)
 
-        assert_equal(stats[0]['txs'], 1)
-        assert_equal(stats[0]['swtxs'], 0)
-        assert_equal(stats[0]['ins'], 0)
-        assert_equal(stats[0]['outs'], 2)
-        assert_equal(stats[0]['totalfee'], 0)
-        assert_equal(stats[0]['utxo_increase'], 2)
-        assert_equal(stats[0]['utxo_size_inc'], 173)
-        assert_equal(stats[0]['total_size'], 0)
-        assert_equal(stats[0]['total_weight'], 0)
-        assert_equal(stats[0]['swtotal_size'], 0)
-        assert_equal(stats[0]['swtotal_weight'], 0)
-        assert_equal(stats[0]['total_out'], 0)
-        assert_equal(stats[0]['minfee'], 0)
-        assert_equal(stats[0]['maxfee'], 0)
-        assert_equal(stats[0]['medianfee'], 0)
-        assert_equal(stats[0]['avgfee'], 0)
-        assert_equal(stats[0]['minfeerate'], 0)
-        assert_equal(stats[0]['maxfeerate'], 0)
-        assert_equal(stats[0]['medianfeerate'], 0)
-        assert_equal(stats[0]['avgfeerate'], 0)
-        assert_equal(stats[0]['mintxsize'], 0)
-        assert_equal(stats[0]['maxtxsize'], 0)
-        assert_equal(stats[0]['mediantxsize'], 0)
-        assert_equal(stats[0]['avgtxsize'], 0)
-
-        assert_equal(stats[1]['txs'], 2)
-        assert_equal(stats[1]['swtxs'], 0)
-        assert_equal(stats[1]['ins'], 1)
-        assert_equal(stats[1]['outs'], 4)
-        assert_equal(stats[1]['totalfee'], 3760)
-        assert_equal(stats[1]['utxo_increase'], 3)
-        assert_equal(stats[1]['utxo_size_inc'], 234)
-        # assert_equal(stats[1]['total_size'], 188)
-        # assert_equal(stats[1]['total_weight'], 752)
-        assert_equal(stats[1]['total_out'], 4999996240)
-        assert_equal(stats[1]['minfee'], 3760)
-        assert_equal(stats[1]['maxfee'], 3760)
-        assert_equal(stats[1]['medianfee'], 3760)
-        assert_equal(stats[1]['avgfee'], 3760)
-        assert_equal(stats[1]['minfeerate'], 20)
-        assert_equal(stats[1]['maxfeerate'], 20)
-        assert_equal(stats[1]['medianfeerate'], 20)
-        assert_equal(stats[1]['avgfeerate'], 20)
-        # assert_equal(stats[1]['mintxsize'], 192)
-        # assert_equal(stats[1]['maxtxsize'], 192)
-        # assert_equal(stats[1]['mediantxsize'], 192)
-        # assert_equal(stats[1]['avgtxsize'], 192)
-
-        assert_equal(stats[max_stat_pos]['txs'], 4)
-        assert_equal(stats[max_stat_pos]['swtxs'], 2)
-        assert_equal(stats[max_stat_pos]['ins'], 3)
-        assert_equal(stats[max_stat_pos]['outs'], 8)
-        assert_equal(stats[max_stat_pos]['totalfee'], 56880)
-        assert_equal(stats[max_stat_pos]['utxo_increase'], 5)
-        assert_equal(stats[max_stat_pos]['utxo_size_inc'], 380)
-        # assert_equal(stats[max_stat_pos]['total_size'], 643)
-        # assert_equal(stats[max_stat_pos]['total_weight'], 2572)
-        assert_equal(stats[max_stat_pos]['total_out'], 9999939360)
-        assert_equal(stats[max_stat_pos]['minfee'], 3320)
-        assert_equal(stats[max_stat_pos]['maxfee'], 49800)
-        assert_equal(stats[max_stat_pos]['medianfee'], 3760)
-        assert_equal(stats[max_stat_pos]['avgfee'], 18960)
-        assert_equal(stats[max_stat_pos]['minfeerate'], 20)
-        # assert_equal(stats[max_stat_pos]['maxfeerate'], 300)
-        assert_equal(stats[max_stat_pos]['medianfeerate'], 20)
-        assert_equal(stats[max_stat_pos]['avgfeerate'], 109)
-        # assert_equal(stats[max_stat_pos]['mintxsize'], 192)
-        # assert_equal(stats[max_stat_pos]['maxtxsize'], 226)
-        # assert_equal(stats[max_stat_pos]['mediantxsize'], 225)
-        # assert_equal(stats[max_stat_pos]['avgtxsize'], 214)
+        for i in range(self.max_stat_pos+1):
+            self.log.info("Checking block %d\n" % (i))
+            for stat in self.EXPECTED_STATS:
+                assert_equal(stats[i][stat], self.expected_stats[i][stat])
 
         # Test invalid parameters raise the proper json exceptions
-        tip = start_height + max_stat_pos
+        tip = self.start_height + self.max_stat_pos
         assert_raises_rpc_error(-8, 'Target block height %d after current tip %d' % (tip+1, tip), node.getblockstats, height=tip+1)
         assert_raises_rpc_error(-8, 'Target block height %d is negative' % (-1), node.getblockstats, height=-tip-2)
 
