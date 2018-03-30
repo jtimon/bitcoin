@@ -20,6 +20,37 @@ def assert_contains(data, values, check_cointains=True):
             assert val not in data
 
 class GetblockstatsTest(BitcoinTestFramework):
+    EXPECTED_STATS = [
+        "height",
+        "time",
+        "mediantime",
+        "txs",
+        "swtxs",
+        "ins",
+        "outs",
+        "subsidy",
+        "totalfee",
+        "utxo_increase",
+        "utxo_size_inc",
+        "total_size",
+        "total_weight",
+        "swtotal_size",
+        "swtotal_weight",
+        "total_out",
+        "minfee",
+        "maxfee",
+        "medianfee",
+        "avgfee",
+        "minfeerate",
+        "maxfeerate",
+        "medianfeerate",
+        "avgfeerate",
+        "mintxsize",
+        "maxtxsize",
+        "mediantxsize",
+        "avgtxsize",
+    ]
+
     def set_test_params(self):
         self.num_nodes = 2
         self.extra_args = [['-txindex'], ['-paytxfee=0.003']]
@@ -44,36 +75,7 @@ class GetblockstatsTest(BitcoinTestFramework):
         stats = [node.getblockstats(height=start_height + i) for i in range(max_stat_pos+1)]
 
         # Make sure all valid statistics are included but nothing else is
-        assert_equal(set(stats[0].keys()), {
-            "height",
-            "time",
-            "mediantime",
-            "txs",
-            "swtxs",
-            "ins",
-            "outs",
-            "subsidy",
-            "totalfee",
-            "utxo_increase",
-            "utxo_size_inc",
-            "total_size",
-            "total_weight",
-            "swtotal_size",
-            "swtotal_weight",
-            "total_out",
-            "minfee",
-            "maxfee",
-            "medianfee",
-            "avgfee",
-            "minfeerate",
-            "maxfeerate",
-            "medianfeerate",
-            "avgfeerate",
-            "mintxsize",
-            "maxtxsize",
-            "mediantxsize",
-            "avgtxsize",
-        })
+        assert_equal(set(stats[0].keys()), set(self.EXPECTED_STATS))
 
         print(stats)
         assert_equal(stats[0]['height'], start_height)
