@@ -160,6 +160,7 @@ class GetblockstatsTest(BitcoinTestFramework):
         # Make sure not valid stats aren't allowed
         inv_sel_stat = 'asdfghjkl'
         inv_stats = [
+            [inv_sel_stat],
             ['minfee' , inv_sel_stat],
             [inv_sel_stat, 'minfee'],
             ['minfee', inv_sel_stat, 'maxfee'],
