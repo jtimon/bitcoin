@@ -131,7 +131,7 @@ BASE_SCRIPTS= [
     'wallet_resendwallettransactions.py',
     'wallet_fallbackfee.py',
     'feature_minchainwork.py',
-    'getblockstats.py',
+    'rpc_getblockstats.py',
     'p2p_fingerprint.py',
     'feature_uacomment.py',
     'p2p_unrequested_blocks.py',
