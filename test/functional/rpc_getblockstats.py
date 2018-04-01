@@ -12,6 +12,9 @@ from test_framework.util import (
     assert_raises_rpc_error,
 )
 import json
+import os
+
+TESTSDIR = os.path.dirname(os.path.realpath(__file__))
 
 def assert_contains(data, values, check_cointains=True):
     for val in values:
@@ -118,10 +121,11 @@ class GetblockstatsTest(BitcoinTestFramework):
         return [node.getblockstats(height=self.start_height + i) for i in range(self.max_stat_pos+1)]
 
     def run_test(self):
+        test_data = os.path.join(TESTSDIR, self.options.test_data)
         if self.options.gen_test_data:
-            self.generate_test_data(self.options.test_data)
+            self.generate_test_data(test_data)
         else:
-            self.load_test_data(self.options.test_data)
+            self.load_test_data(test_data)
 
         node = self.nodes[0]
         stats = self.get_stats()
