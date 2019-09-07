@@ -280,9 +280,6 @@ public:
             vSeeds.push_back("2a01:7c8:d005:390::5");
             vSeeds.push_back("ntv3mtqw5wt63red.onion:38333");
         } else {
-            if (!args.IsArgSet("-signet_blockscript")) {
-                throw std::runtime_error(strprintf("%s: -signet_blockscript is mandatory for signet networks", __func__));
-            }
             if (args.GetArgs("-signet_blockscript").size() != 1) {
                 throw std::runtime_error(strprintf("%s: -signet_blockscript cannot be multiple values.", __func__));
             }
