@@ -24,7 +24,6 @@ void SetupChainParamsBaseOptions()
     gArgs.AddArg("-testnet", "Use the test chain. Equivalent to -chain=test.", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-signet", "Use the signet chain. Note that the network is defined by the signet_blockscript parameter", ArgsManager::ALLOW_ANY, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-signet_blockscript", "Blocks must satisfy the given script to be considered valid (only for -signet networks)", ArgsManager::ALLOW_STRING, OptionsCategory::CHAINPARAMS);
-    gArgs.AddArg("-signet_genesisnonce", "Nonce value for use in genesis block to satisfy proof of work requirement", ArgsManager::ALLOW_INT, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-signet_enforcescript", "Blocks must satisfy the given script to be considered valid (this replaces -signet_blockscript, and is used for opt-in-reorg mode)", ArgsManager::ALLOW_STRING, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-signet_seednode", "Specify a seed node for the signet network (may be used multiple times to specify multiple seed nodes)", ArgsManager::ALLOW_STRING, OptionsCategory::CHAINPARAMS);
     gArgs.AddArg("-vbparams=deployment:start:end", "Use given start/end times for specified version bits deployment (regtest or custom only)", ArgsManager::ALLOW_ANY | ArgsManager::DEBUG_ONLY, OptionsCategory::CHAINPARAMS);
