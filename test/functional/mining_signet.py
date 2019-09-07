@@ -35,10 +35,10 @@ def assert_template(node, block, expect, rehash=True):
 
 class SigMiningTest(BitcoinTestFramework):
     def set_test_params(self):
-        self.chain = "signet"
         self.num_nodes = 2
         self.setup_clean_chain = True
-        shared_args = ["-signet_blockscript=" + blockscript, "-signet_seednode=localhost:1234"]
+        shared_args = ["-signet_blockscript=" + blockscript, "-seednode=localhost:1234", "-pubkeyprefix=125",
+                       "-scriptprefix=87", "-secretprefix=217", "-bech32_hrp=sb"]
         self.extra_args = [shared_args, shared_args]
 
     def skip_test_if_missing_module(self):

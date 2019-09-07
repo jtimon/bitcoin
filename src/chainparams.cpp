@@ -276,18 +276,12 @@ class SigNetParams : public CChainParams {
 public:
     SigNetParams(const ArgsManager& args) {
 
+        const std::string signet_blockscript_str = "512103ad5e0edad18cb1f0fc0d28a3d4f1f3e445640337489abb10404f2d1e086be43051ae";
+        LogPrintf("Using default signet network (script: %s)\n", signet_blockscript_str);
         vSeeds.clear();
-        if (args.IsArgSet("-signet_seednode")) {
-            vSeeds = gArgs.GetArgs("-signet_seednode");
-        } else if (!args.IsArgSet("-signet_blockscript")) {
-            LogPrintf("Using default signet network seeds\n");
-            vSeeds.push_back("178.128.221.177");
-            vSeeds.push_back("2a01:7c8:d005:390::5");
-            vSeeds.push_back("ntv3mtqw5wt63red.onion:38333");
-        }
-
-        const std::string signet_blockscript_str = args.GetArg("-signet_blockscript", "512103ad5e0edad18cb1f0fc0d28a3d4f1f3e445640337489abb10404f2d1e086be43051ae");
-        LogPrintf("SigNet with block script %s\n", signet_blockscript_str);
+        vSeeds.emplace_back("178.128.221.177");
+        vSeeds.emplace_back("2a01:7c8:d005:390::5");
+        vSeeds.emplace_back("ntv3mtqw5wt63red.onion:38333");
         std::vector<uint8_t> bin = ParseHex(signet_blockscript_str);
         g_signet_blockscript = CScript(bin.begin(), bin.end());
 
@@ -486,6 +480,12 @@ class CCustomParams : public CRegTestParams {
     {
         UpdateActivationParametersFromArgs(args);
 
+        consensus.signet_blocks = args.IsArgSet("-signet_blockscript");
+        const std::string signet_script_str = gArgs.GetArg("-signet_blockscript", "");
+        LogPrintf("SigNet=%s with block script %s\n", consensus.signet_blocks, signet_script_str);
+        std::vector<uint8_t> signet_script_bytes = ParseHex(signet_script_str);
+        g_signet_blockscript = CScript(signet_script_bytes.begin(), signet_script_bytes.end());
+
         consensus.nSubsidyHalvingInterval = args.GetArg("-con_nsubsidyhalvinginterval", consensus.nSubsidyHalvingInterval);
         consensus.BIP16Exception = uint256S(args.GetArg("-con_bip16exception", "0x0"));
         consensus.BIP34Height = args.GetArg("-con_bip34height", consensus.BIP34Height);
@@ -546,8 +546,22 @@ public:
 
         CHashWriter h(SER_DISK, 0);
         h << strNetworkID;
+        if (consensus.signet_blocks) {
+            h << g_signet_blockscript;
+        }
         genesis = CreateGenesisBlockWithHash(h.GetHash());
         consensus.hashGenesisBlock = genesis.GetHash();
+
+        // Now that genesis block has been generated, we check if there is an enforcescript, and switch
+        // to that one, as we will not be using the real block script anymore
+        if (args.IsArgSet("-signet_enforcescript")) {
+            if (args.GetArgs("-signet_enforcescript").size() != 1) {
+                throw std::runtime_error(strprintf("%s: -signet_enforcescript cannot be multiple values.", __func__));
+            }
+            const std::vector<uint8_t> bin = ParseHex(args.GetArgs("-signet_enforcescript")[0]);
+            g_signet_blockscript = CScript(bin.begin(), bin.end());
+            LogPrintf("SigNet enforce script %s\n", gArgs.GetArgs("-signet_enforcescript")[0]);
+        }
     }
 };
 
