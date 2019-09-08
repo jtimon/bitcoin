@@ -40,17 +40,6 @@ static CBlock CreateGenesisBlock(const CScript& coinbase_sig, const CScript& gen
     return genesis;
 }
 
-static CBlock CreateSignetGenesisBlock(const std::string& chain_name, const CScript& block_script, uint32_t block_nonce)
-{
-    CHashWriter h(SER_DISK, 0);
-    h << chain_name;
-    h << block_script;
-    uint256 hash = h.GetHash();
-    CScript coinbase_sig = CScript() << std::vector<uint8_t>(hash.begin(), hash.end());
-    CScript genesis_out = CScript() << OP_RETURN;
-    return CreateGenesisBlock(coinbase_sig, genesis_out, 1534313275, block_nonce, 0x1e2adc28, 1, 50 * COIN);
-}
-
 /**
  * Build the genesis block. Note that the output of its generation
  * transaction cannot be spent since it did not originally exist in the
@@ -266,78 +255,6 @@ public:
             /* nTxCount */ 19438708,
             /* dTxRate  */ 0.626
         };
-    }
-};
-
-/**
- * SigNet
- */
-class SigNetParams : public CChainParams {
-public:
-    SigNetParams(const ArgsManager& args) {
-
-        const std::string signet_blockscript_str = "512103ad5e0edad18cb1f0fc0d28a3d4f1f3e445640337489abb10404f2d1e086be43051ae";
-        LogPrintf("Using default signet network (script: %s)\n", signet_blockscript_str);
-        vSeeds.clear();
-        vSeeds.emplace_back("178.128.221.177");
-        vSeeds.emplace_back("2a01:7c8:d005:390::5");
-        vSeeds.emplace_back("ntv3mtqw5wt63red.onion:38333");
-        std::vector<uint8_t> bin = ParseHex(signet_blockscript_str);
-        g_signet_blockscript = CScript(bin.begin(), bin.end());
-
-        strNetworkID = "signet";
-        consensus.signet_blocks = true;
-        consensus.nSubsidyHalvingInterval = 210000;
-        consensus.BIP34Height = 1;
-        consensus.BIP65Height = 1;
-        consensus.BIP66Height = 1;
-        consensus.CSVHeight = 0;
-        consensus.SegwitHeight = 0;
-        consensus.nPowTargetTimespan = 14 * 24 * 60 * 60; // two weeks
-        consensus.nPowTargetSpacing = 10 * 60;
-        consensus.fPowAllowMinDifficultyBlocks = false;
-        consensus.fPowNoRetargeting = false;
-        consensus.nRuleChangeActivationThreshold = 1916;
-        consensus.nMinerConfirmationWindow = 2016;
-        consensus.powLimit = uint256S("00002adc28cf53b63c82faa55d83e40ac63b5f100aa5d8df62a429192f9e8ce5");
-        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
-        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nStartTime = 1539478800;
-        consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].nTimeout = Consensus::BIP9Deployment::NO_TIMEOUT;
-
-        pchMessageStart[0] = 0xf0;
-        pchMessageStart[1] = 0xc7;
-        pchMessageStart[2] = 0x70;
-        pchMessageStart[3] = 0x6a;
-        nDefaultPort = 38333;
-        nPruneAfterHeight = 1000;
-
-        genesis = CreateSignetGenesisBlock(strNetworkID, g_signet_blockscript, 621297);
-        consensus.hashGenesisBlock = genesis.GetHash();
-
-        // Now that genesis block has been generated, we check if there is an enforcescript, and switch
-        // to that one, as we will not be using the real block script anymore
-        if (args.IsArgSet("-signet_enforcescript")) {
-            if (args.GetArgs("-signet_enforcescript").size() != 1) {
-                throw std::runtime_error(strprintf("%s: -signet_enforcescript cannot be multiple values.", __func__));
-            }
-            bin = ParseHex(args.GetArgs("-signet_enforcescript")[0]);
-            g_signet_blockscript = CScript(bin.begin(), bin.end());
-            LogPrintf("SigNet enforce script %s\n", gArgs.GetArgs("-signet_enforcescript")[0]);
-        }
-
-        vFixedSeeds.clear();
-
-        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>{125};
-        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>{87};
-        base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>{217};
-        base58Prefixes[EXT_PUBLIC_KEY] = {0x04, 0x35, 0x87, 0xCF};
-        base58Prefixes[EXT_SECRET_KEY] = {0x04, 0x35, 0x83, 0x94};
-
-        bech32_hrp = "sb";
-
-        fDefaultConsistencyChecks = false;
-        fRequireStandard = true;
-        m_is_test_chain = true;
     }
 };
 
@@ -581,9 +498,6 @@ std::unique_ptr<const CChainParams> CreateChainParams(const std::string& chain)
         return std::unique_ptr<CChainParams>(new CTestNetParams());
     else if (chain == CBaseChainParams::REGTEST)
         return std::unique_ptr<CChainParams>(new CRegTestParams(gArgs));
-    else if (chain == CBaseChainParams::SIGNET) {
-        return std::unique_ptr<CChainParams>(new SigNetParams(gArgs));
-    }
 
     return std::unique_ptr<CChainParams>(new CCustomParams(chain, gArgs));
 }

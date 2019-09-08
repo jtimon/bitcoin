@@ -941,19 +941,16 @@ std::string ArgsManager::GetChainName() const
     LOCK(cs_args);
     bool fRegTest = ArgsManagerHelper::GetNetBoolArg(*this, "-regtest");
     bool fTestNet = ArgsManagerHelper::GetNetBoolArg(*this, "-testnet");
-    bool signet   = ArgsManagerHelper::GetNetBoolArg(*this, "-signet");
     const bool is_chain_arg_set = IsArgSet("-chain");
 
-    if ((int)is_chain_arg_set + (int)fTestNet + (int)fRegTest + (int)signet > 1) {
-        throw std::runtime_error("Invalid combination of -regtest, -testnet, -signet and -chain. Can use at most one");
+    if ((int)is_chain_arg_set + (int)fTestNet + (int)fRegTest > 1) {
+        throw std::runtime_error("Invalid combination of -regtest, -testnet and -chain. Can use at most one");
     }
     if (fRegTest)
         return CBaseChainParams::REGTEST;
     if (fTestNet)
         return CBaseChainParams::TESTNET;
-    if (signet) {
-        return CBaseChainParams::SIGNET;
-    }
+
     return GetArg("-chain", CBaseChainParams::MAIN);
 }
 
