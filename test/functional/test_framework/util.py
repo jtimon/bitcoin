@@ -288,7 +288,7 @@ def initialize_datadir(dirname, n, chain):
     if not os.path.isdir(datadir):
         os.makedirs(datadir)
     with open(os.path.join(datadir, "bitcoin.conf"), 'w', encoding='utf8') as f:
-        f.write("{}=1\n".format(chain))
+        f.write("chain={}\n".format(chain))
         f.write("[{}]\n".format(chain))
         f.write("port=" + str(p2p_port(n)) + "\n")
         f.write("rpcport=" + str(rpc_port(n)) + "\n")

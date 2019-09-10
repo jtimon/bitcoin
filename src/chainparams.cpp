@@ -7,6 +7,8 @@
 
 #include <chainparamsseeds.h>
 #include <consensus/merkle.h>
+#include <hash.h>
+#include <signet.h>
 #include <tinyformat.h>
 #include <util/system.h>
 #include <util/strencodings.h>
@@ -17,13 +19,13 @@
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
 
-static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesisOutputScript, uint32_t nTime, uint32_t nNonce, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
+static CBlock CreateGenesisBlock(const CScript& coinbase_sig, const CScript& genesisOutputScript, uint32_t nTime, uint32_t nNonce, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
 {
     CMutableTransaction txNew;
     txNew.nVersion = 1;
     txNew.vin.resize(1);
     txNew.vout.resize(1);
-    txNew.vin[0].scriptSig = CScript() << 486604799 << CScriptNum(4) << std::vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
+    txNew.vin[0].scriptSig = coinbase_sig;
     txNew.vout[0].nValue = genesisReward;
     txNew.vout[0].scriptPubKey = genesisOutputScript;
 
@@ -52,8 +54,16 @@ static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesi
 static CBlock CreateGenesisBlock(uint32_t nTime, uint32_t nNonce, uint32_t nBits, int32_t nVersion, const CAmount& genesisReward)
 {
     const char* pszTimestamp = "The Times 03/Jan/2009 Chancellor on brink of second bailout for banks";
+    const CScript coinbase_sig = CScript() << 486604799 << CScriptNum(4) << std::vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
+
     const CScript genesisOutputScript = CScript() << ParseHex("04678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5f") << OP_CHECKSIG;
-    return CreateGenesisBlock(pszTimestamp, genesisOutputScript, nTime, nNonce, nBits, nVersion, genesisReward);
+    return CreateGenesisBlock(coinbase_sig, genesisOutputScript, nTime, nNonce, nBits, nVersion, genesisReward);
+}
+
+static CBlock CreateGenesisBlockWithHash(const uint256& hash)
+{
+    CScript coinbase_sig = CScript() << std::vector<uint8_t>(hash.begin(), hash.end());
+    return CreateGenesisBlock(coinbase_sig, CScript(OP_RETURN), 1296688602, 2, 0x207fffff, 1, 50 * COIN);
 }
 
 /**
@@ -76,6 +86,7 @@ public:
         consensus.nPowTargetSpacing = 10 * 60;
         consensus.fPowAllowMinDifficultyBlocks = false;
         consensus.fPowNoRetargeting = false;
+        consensus.signet_blocks = false;
         consensus.nRuleChangeActivationThreshold = 1916; // 95% of 2016
         consensus.nMinerConfirmationWindow = 2016; // nPowTargetTimespan / nPowTargetSpacing
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
@@ -182,6 +193,7 @@ public:
         consensus.nPowTargetSpacing = 10 * 60;
         consensus.fPowAllowMinDifficultyBlocks = true;
         consensus.fPowNoRetargeting = false;
+        consensus.signet_blocks = false;
         consensus.nRuleChangeActivationThreshold = 1512; // 75% for testchains
         consensus.nMinerConfirmationWindow = 2016; // nPowTargetTimespan / nPowTargetSpacing
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
@@ -266,6 +278,7 @@ public:
         consensus.nPowTargetSpacing = 10 * 60;
         consensus.fPowAllowMinDifficultyBlocks = true;
         consensus.fPowNoRetargeting = true;
+        consensus.signet_blocks = false;
         consensus.nRuleChangeActivationThreshold = 108; // 75% for testchains
         consensus.nMinerConfirmationWindow = 144; // Faster than normal for regtest (144 instead of 2016)
         consensus.vDeployments[Consensus::DEPLOYMENT_TESTDUMMY].bit = 28;
@@ -376,6 +389,99 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
     }
 }
 
+/**
+ * Custom params for testing.
+ */
+class CCustomParams : public CRegTestParams {
+    void UpdateFromArgs(ArgsManager& args)
+    {
+        UpdateActivationParametersFromArgs(args);
+
+        consensus.signet_blocks = args.IsArgSet("-signet_blockscript");
+        const std::string signet_script_str = gArgs.GetArg("-signet_blockscript", "");
+        LogPrintf("SigNet=%s with block script %s\n", consensus.signet_blocks, signet_script_str);
+        std::vector<uint8_t> signet_script_bytes = ParseHex(signet_script_str);
+        g_signet_blockscript = CScript(signet_script_bytes.begin(), signet_script_bytes.end());
+
+        consensus.nSubsidyHalvingInterval = args.GetArg("-con_nsubsidyhalvinginterval", consensus.nSubsidyHalvingInterval);
+        consensus.BIP16Exception = uint256S(args.GetArg("-con_bip16exception", "0x0"));
+        consensus.BIP34Height = args.GetArg("-con_bip34height", consensus.BIP34Height);
+        consensus.BIP34Hash = uint256S(args.GetArg("-con_bip34hash", "0x0"));
+        consensus.BIP65Height = args.GetArg("-con_bip65height", consensus.BIP65Height);
+        consensus.BIP66Height = args.GetArg("-con_bip66height", consensus.BIP66Height);
+        consensus.powLimit = uint256S(args.GetArg("-con_powlimit", "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"));
+        consensus.nPowTargetTimespan = args.GetArg("-con_npowtargettimespan", consensus.nPowTargetTimespan);
+        consensus.nPowTargetSpacing = args.GetArg("-con_npowtargetspacing", consensus.nPowTargetSpacing);
+        consensus.fPowAllowMinDifficultyBlocks = args.GetBoolArg("-con_fpowallowmindifficultyblocks", consensus.fPowAllowMinDifficultyBlocks);
+        consensus.fPowNoRetargeting = args.GetBoolArg("-con_fpownoretargeting", consensus.fPowNoRetargeting);
+        consensus.nRuleChangeActivationThreshold = (uint32_t)args.GetArg("-con_nrulechangeactivationthreshold", consensus.nRuleChangeActivationThreshold);
+        consensus.nMinerConfirmationWindow = (uint32_t)args.GetArg("-con_nminerconfirmationwindow", consensus.nMinerConfirmationWindow);
+
+        consensus.nMinimumChainWork = uint256S(args.GetArg("-con_nminimumchainwork", "0x0"));
+        consensus.defaultAssumeValid = uint256S(args.GetArg("-con_defaultassumevalid", "0x00"));
+
+        nDefaultPort = (uint64_t)args.GetArg("-ndefaultport", nDefaultPort);
+        nPruneAfterHeight = (uint64_t)args.GetArg("-npruneafterheight", nPruneAfterHeight);
+        m_assumed_blockchain_size = (uint64_t)args.GetArg("-assumed_blockchain_size", m_assumed_blockchain_size);
+        m_assumed_chain_state_size = (uint64_t)args.GetArg("-assumed_chain_state_size", m_assumed_chain_state_size);
+        fDefaultConsistencyChecks = args.GetBoolArg("-fdefaultconsistencychecks", fDefaultConsistencyChecks);
+        fRequireStandard = args.GetBoolArg("-frequirestandard", fRequireStandard);
+        m_is_test_chain = args.GetBoolArg("-is_test_chain", m_is_test_chain);
+
+        bech32_hrp = args.GetArg("-bech32_hrp", bech32_hrp);
+        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-pubkeyprefix", 111));
+        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1, args.GetArg("-scriptprefix", 196));
+        base58Prefixes[SECRET_KEY] =     std::vector<unsigned char>(1, args.GetArg("-secretprefix", 239));
+
+        const std::string extpubprefix = args.GetArg("-extpubkeyprefix", "043587CF");
+        assert(IsHex(extpubprefix) && extpubprefix.size() == 8 && "-extpubkeyprefix must be hex string of length 8");
+        base58Prefixes[EXT_PUBLIC_KEY] = ParseHex(extpubprefix);
+
+        const std::string extprvprefix = args.GetArg("-extprvkeyprefix", "04358394");
+        assert(IsHex(extprvprefix) && extprvprefix.size() == 8 && "-extprvkeyprefix must be hex string of length 8");
+        base58Prefixes[EXT_SECRET_KEY] = ParseHex(extprvprefix);
+
+        const std::string magic_str = args.GetArg("-pchmessagestart", "FABFB5DA");
+        assert(IsHex(magic_str) && magic_str.size() == 8 && "-pchmessagestart must be hex string of length 8");
+        const std::vector<unsigned char> magic_byte = ParseHex(magic_str);
+        std::copy(begin(magic_byte), end(magic_byte), pchMessageStart);
+
+        vSeeds.clear();
+        if (gArgs.IsArgSet("-seednode")) {
+            const auto seednodes = gArgs.GetArgs("-seednode");
+            if (seednodes.size() != 1 || seednodes[0] != "0") {
+                vSeeds = seednodes;
+            }
+        }
+    }
+
+public:
+    CCustomParams(const std::string& chain, ArgsManager& args) : CRegTestParams(args)
+    {
+        strNetworkID = chain;
+        UpdateFromArgs(args);
+
+        CHashWriter h(SER_DISK, 0);
+        h << strNetworkID;
+        if (consensus.signet_blocks) {
+            h << g_signet_blockscript;
+        }
+        genesis = CreateGenesisBlockWithHash(h.GetHash());
+        consensus.hashGenesisBlock = genesis.GetHash();
+
+        // Now that genesis block has been generated, we check if there is an enforcescript, and switch
+        // to that one, as we will not be using the real block script anymore
+        if (args.IsArgSet("-signet_enforcescript")) {
+            if (args.GetArgs("-signet_enforcescript").size() != 1) {
+                throw std::runtime_error(strprintf("%s: -signet_enforcescript cannot be multiple values.", __func__));
+            }
+            const std::vector<uint8_t> bin = ParseHex(args.GetArgs("-signet_enforcescript")[0]);
+            g_signet_blockscript = CScript(bin.begin(), bin.end());
+            LogPrintf("SigNet enforce script %s\n", gArgs.GetArgs("-signet_enforcescript")[0]);
+        }
+    }
+};
+
 static std::unique_ptr<const CChainParams> globalChainParams;
 
 const CChainParams &Params() {
@@ -385,13 +491,15 @@ const CChainParams &Params() {
 
 std::unique_ptr<const CChainParams> CreateChainParams(const std::string& chain)
 {
+    // Reserved names for non-custom chains
     if (chain == CBaseChainParams::MAIN)
         return std::unique_ptr<CChainParams>(new CMainParams());
     else if (chain == CBaseChainParams::TESTNET)
         return std::unique_ptr<CChainParams>(new CTestNetParams());
     else if (chain == CBaseChainParams::REGTEST)
         return std::unique_ptr<CChainParams>(new CRegTestParams(gArgs));
-    throw std::runtime_error(strprintf("%s: Unknown chain %s.", __func__, chain));
+
+    return std::unique_ptr<CChainParams>(new CCustomParams(chain, gArgs));
 }
 
 void SelectParams(const std::string& network)

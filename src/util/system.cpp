@@ -352,21 +352,6 @@ const std::set<std::string> ArgsManager::GetUnsuitableSectionOnlyArgs() const
     return unsuitables;
 }
 
-const std::list<SectionInfo> ArgsManager::GetUnrecognizedSections() const
-{
-    // Section names to be recognized in the config file.
-    static const std::set<std::string> available_sections{
-        CBaseChainParams::REGTEST,
-        CBaseChainParams::TESTNET,
-        CBaseChainParams::MAIN
-    };
-
-    LOCK(cs_args);
-    std::list<SectionInfo> unrecognized = m_config_sections;
-    unrecognized.remove_if([](const SectionInfo& appeared){ return available_sections.find(appeared.m_name) != available_sections.end(); });
-    return unrecognized;
-}
-
 void ArgsManager::SelectConfigNetwork(const std::string& network)
 {
     LOCK(cs_args);
@@ -954,17 +939,18 @@ bool ArgsManager::ReadConfigFiles(std::string& error, bool ignore_invalid_keys)
 std::string ArgsManager::GetChainName() const
 {
     LOCK(cs_args);
-    const bool fRegTest = ArgsManagerHelper::GetNetBoolArg(*this, "-regtest");
-    const bool fTestNet = ArgsManagerHelper::GetNetBoolArg(*this, "-testnet");
+    bool fRegTest = ArgsManagerHelper::GetNetBoolArg(*this, "-regtest");
+    bool fTestNet = ArgsManagerHelper::GetNetBoolArg(*this, "-testnet");
     const bool is_chain_arg_set = IsArgSet("-chain");
 
-    if ((int)is_chain_arg_set + (int)fRegTest + (int)fTestNet > 1) {
-        throw std::runtime_error("Invalid combination of -regtest, -testnet and -chain. Can use at most one.");
+    if ((int)is_chain_arg_set + (int)fTestNet + (int)fRegTest > 1) {
+        throw std::runtime_error("Invalid combination of -regtest, -testnet and -chain. Can use at most one");
     }
     if (fRegTest)
         return CBaseChainParams::REGTEST;
     if (fTestNet)
         return CBaseChainParams::TESTNET;
+
     return GetArg("-chain", CBaseChainParams::MAIN);
 }
 
