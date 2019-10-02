@@ -11,7 +11,6 @@ from test_framework.test_framework import BitcoinTestFramework
 
 class ConfArgsTest(BitcoinTestFramework):
     def set_test_params(self):
-        self.chain = 'regtest2'
         self.setup_clean_chain = True
         self.num_nodes = 1
 
